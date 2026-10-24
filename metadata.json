@@ -1,0 +1,6 @@
+{
+  "name": "PHY BU Monitoring Platform",
+  "description": "منصة متابعة وإدارة عمليات توكيلات Hikvision وVelasea وAMG في مصر - استكشاف Odoo المرحلة 0 ومتابعة التحصيلات والموردين والمخزون",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
