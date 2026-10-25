@@ -51,14 +51,14 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [currentUser, setCurrentUser] = useState<UserProfile>(LIVE_USER_PROFILE);
 
-  // Data Stores (Preloaded with real extracted Odoo dataset: 613 orders & 390 inventory items)
+  // Data Stores (Preloaded with 100% genuine extracted Odoo dataset: 613 orders, 390 products, 123 invoices, 216 clients, 30 reps)
   const [invoices, setInvoices] = useState<CustomerInvoice[]>(() => StorageService.getInvoices());
   const [supplierBills, setSupplierBills] = useState<SupplierBill[]>(() => StorageService.getSupplierBills());
-  const [orders, setOrders] = useState<SalesOrder[]>(() => (odooExtractedData.salesOrders as any) || []);
-  const [stockItems, setStockItems] = useState<StockItem[]>(() => (odooExtractedData.products as any) || []);
+  const [orders, setOrders] = useState<SalesOrder[]>(() => StorageService.getSalesOrders());
+  const [stockItems, setStockItems] = useState<StockItem[]>(() => StorageService.getStockItems());
   const [stockMoves, setStockMoves] = useState<StockMove[]>([]);
-  const [clients, setClients] = useState<EgyptClient[]>([]);
-  const [staffPerformance, setStaffPerformance] = useState<BUStaffPerformance[]>([]);
+  const [clients, setClients] = useState<EgyptClient[]>(() => StorageService.getClients());
+  const [staffPerformance, setStaffPerformance] = useState<BUStaffPerformance[]>(() => StorageService.getStaffPerformance());
   const [alerts, setAlerts] = useState<SystemAlert[]>(() => StorageService.getAlerts());
 
   // Loading & Live State
@@ -71,10 +71,10 @@ export default function App() {
     billsCount: number;
     stockCount: number;
   }>({
-    ordersCount: odooExtractedData.salesOrders?.length || 613,
+    ordersCount: StorageService.getSalesOrders().length,
     invoicesCount: StorageService.getInvoices().length,
     billsCount: StorageService.getSupplierBills().length,
-    stockCount: odooExtractedData.products?.length || 390,
+    stockCount: StorageService.getStockItems().length,
   });
 
   // Display Settings
@@ -381,6 +381,10 @@ export default function App() {
                   <SettingsView
                     invoices={invoices}
                     supplierBills={supplierBills}
+                    orders={orders}
+                    stockItems={stockItems}
+                    clients={clients}
+                    staffPerformance={staffPerformance}
                     onRefreshData={loadLiveOdooData}
                   />
                 )}

@@ -6,7 +6,9 @@ import {
   SystemAlert,
   OdooConnectionConfig,
   UserProfile,
-  Phase0AuditReport
+  Phase0AuditReport,
+  EgyptClient,
+  BUStaffPerformance
 } from '../types';
 import {
   pushInvoicePromiseToSupabase,
@@ -17,22 +19,44 @@ import {
   INITIAL_SUPPLIER_BILLS,
   INITIAL_SALES_ORDERS,
   INITIAL_STOCK_ITEMS,
+  INITIAL_CLIENTS,
+  INITIAL_STAFF_PERFORMANCE,
   INITIAL_ALERTS,
   INITIAL_USER_PROFILES,
   INITIAL_PHASE0_REPORT
 } from '../data/mockData';
 
+// V2 Storage Keys (migrated away from any v1 dummy data)
 const KEYS = {
-  INVOICES: 'phy_bu_invoices_v1',
-  SUPPLIERS: 'phy_bu_suppliers_v1',
-  ORDERS: 'phy_bu_orders_v1',
-  STOCK: 'phy_bu_stock_v1',
-  ALERTS: 'phy_bu_alerts_v1',
-  ODOO_CONFIG: 'phy_bu_odoo_config_v1',
-  CURRENT_USER_ID: 'phy_bu_current_user_v1',
-  AUDIT_REPORT: 'phy_bu_audit_report_v1',
-  THRESHOLDS: 'phy_bu_thresholds_v1',
+  INVOICES: 'phy_bu_invoices_v2',
+  SUPPLIERS: 'phy_bu_suppliers_v2',
+  ORDERS: 'phy_bu_orders_v2',
+  STOCK: 'phy_bu_stock_v2',
+  CLIENTS: 'phy_bu_clients_v2',
+  STAFF: 'phy_bu_staff_v2',
+  ALERTS: 'phy_bu_alerts_v2',
+  ODOO_CONFIG: 'phy_bu_odoo_config_v2',
+  CURRENT_USER_ID: 'phy_bu_current_user_v2',
+  AUDIT_REPORT: 'phy_bu_audit_report_v2',
+  THRESHOLDS: 'phy_bu_thresholds_v2',
 };
+
+// Purge any stale legacy v1 mock keys from localStorage on script load
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const legacyKeys = [
+      'phy_bu_invoices_v1',
+      'phy_bu_suppliers_v1',
+      'phy_bu_orders_v1',
+      'phy_bu_stock_v1',
+      'phy_bu_alerts_v1',
+      'phy_bu_current_user_v1',
+    ];
+    legacyKeys.forEach((k) => window.localStorage.removeItem(k));
+  } catch (e) {
+    // Ignore storage errors in private browsing
+  }
+}
 
 export interface AlertThresholds {
   stagnantDays: number; // default 90
@@ -53,7 +77,7 @@ export const DEFAULT_THRESHOLDS: AlertThresholds = {
 export const DEFAULT_ODOO_CONFIG: OdooConnectionConfig = {
   url: 'https://www.eelaf.com/odoo',
   db: 'eelaf-master-21952014',
-  username: 'tamereelaf@gmail.com',
+  username: 'tamer.elshafey@eelaf.com',
   apiKey: '',
   isConnected: false,
   brandTagNames: ['Hikvision', 'Velasea', 'AMG'],
@@ -63,14 +87,22 @@ export class StorageService {
   static getInvoices(): CustomerInvoice[] {
     try {
       const data = localStorage.getItem(KEYS.INVOICES);
-      return data ? JSON.parse(data) : INITIAL_INVOICES;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_INVOICES;
     } catch {
       return INITIAL_INVOICES;
     }
   }
 
   static saveInvoices(invoices: CustomerInvoice[]): void {
-    localStorage.setItem(KEYS.INVOICES, JSON.stringify(invoices));
+    try {
+      localStorage.setItem(KEYS.INVOICES, JSON.stringify(invoices));
+    } catch (e) {
+      console.warn('Storage quota exceeded for invoices', e);
+    }
   }
 
   static updateInvoicePromise(
@@ -109,14 +141,22 @@ export class StorageService {
   static getSupplierBills(): SupplierBill[] {
     try {
       const data = localStorage.getItem(KEYS.SUPPLIERS);
-      return data ? JSON.parse(data) : INITIAL_SUPPLIER_BILLS;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_SUPPLIER_BILLS;
     } catch {
       return INITIAL_SUPPLIER_BILLS;
     }
   }
 
   static saveSupplierBills(bills: SupplierBill[]): void {
-    localStorage.setItem(KEYS.SUPPLIERS, JSON.stringify(bills));
+    try {
+      localStorage.setItem(KEYS.SUPPLIERS, JSON.stringify(bills));
+    } catch (e) {
+      console.warn('Storage quota exceeded for supplier bills', e);
+    }
   }
 
   static updateSupplierPaymentSchedule(
@@ -148,27 +188,105 @@ export class StorageService {
   static getSalesOrders(): SalesOrder[] {
     try {
       const data = localStorage.getItem(KEYS.ORDERS);
-      return data ? JSON.parse(data) : INITIAL_SALES_ORDERS;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_SALES_ORDERS;
     } catch {
       return INITIAL_SALES_ORDERS;
+    }
+  }
+
+  static saveSalesOrders(orders: SalesOrder[]): void {
+    try {
+      localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
+    } catch (e) {
+      console.warn('Storage quota exceeded for orders', e);
     }
   }
 
   static getStockItems(): StockItem[] {
     try {
       const data = localStorage.getItem(KEYS.STOCK);
-      return data ? JSON.parse(data) : INITIAL_STOCK_ITEMS;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_STOCK_ITEMS;
     } catch {
       return INITIAL_STOCK_ITEMS;
+    }
+  }
+
+  static saveStockItems(stock: StockItem[]): void {
+    try {
+      localStorage.setItem(KEYS.STOCK, JSON.stringify(stock));
+    } catch (e) {
+      console.warn('Storage quota exceeded for stock', e);
+    }
+  }
+
+  static getClients(): EgyptClient[] {
+    try {
+      const data = localStorage.getItem(KEYS.CLIENTS);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_CLIENTS;
+    } catch {
+      return INITIAL_CLIENTS;
+    }
+  }
+
+  static saveClients(clients: EgyptClient[]): void {
+    try {
+      localStorage.setItem(KEYS.CLIENTS, JSON.stringify(clients));
+    } catch (e) {
+      console.warn('Storage quota exceeded for clients', e);
+    }
+  }
+
+  static getStaffPerformance(): BUStaffPerformance[] {
+    try {
+      const data = localStorage.getItem(KEYS.STAFF);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_STAFF_PERFORMANCE;
+    } catch {
+      return INITIAL_STAFF_PERFORMANCE;
+    }
+  }
+
+  static saveStaffPerformance(staff: BUStaffPerformance[]): void {
+    try {
+      localStorage.setItem(KEYS.STAFF, JSON.stringify(staff));
+    } catch (e) {
+      console.warn('Storage quota exceeded for staff', e);
     }
   }
 
   static getAlerts(): SystemAlert[] {
     try {
       const data = localStorage.getItem(KEYS.ALERTS);
-      return data ? JSON.parse(data) : INITIAL_ALERTS;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_ALERTS;
     } catch {
       return INITIAL_ALERTS;
+    }
+  }
+
+  static saveAlerts(alerts: SystemAlert[]): void {
+    try {
+      localStorage.setItem(KEYS.ALERTS, JSON.stringify(alerts));
+    } catch (e) {
+      console.warn('Storage quota exceeded for alerts', e);
     }
   }
 
@@ -187,7 +305,7 @@ export class StorageService {
 
   static getCurrentUser(): UserProfile {
     try {
-      const id = localStorage.getItem(KEYS.CURRENT_USER_ID) || 'user_tamer';
+      const id = localStorage.getItem(KEYS.CURRENT_USER_ID) || 'user_595';
       return (
         INITIAL_USER_PROFILES.find((u) => u.id === id) ||
         INITIAL_USER_PROFILES[0]
@@ -228,6 +346,10 @@ export class StorageService {
   }
 
   static resetToDefault(): void {
-    localStorage.clear();
+    try {
+      Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn('Error clearing storage', e);
+    }
   }
 }
