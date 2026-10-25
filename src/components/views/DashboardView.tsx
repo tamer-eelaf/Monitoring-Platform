@@ -98,11 +98,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-5 py-4">
         <div>
           <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-            <span>مرحباً، {currentUser.name}</span>
-            <span className="text-xs font-normal text-slate-400">| لوحة إدارة Physical Security BU</span>
+            <span>لوحة القيادة والمؤشرات التشغيلية</span>
+            <span className="text-xs font-normal text-slate-400">| Physical Security BU</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            ملخص الأداء المالي والتحصيلات الحية لتوكيلات Hikvision وVelasea وAMG في مصر
+            ملخص الأداء المالي، المبيعات، ومستحقات التوريد لتوكيلات Hikvision وVelasea وAMG
           </p>
         </div>
 
@@ -118,33 +118,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* CEO Executive Presentation Banner */}
-      <div className="bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-900 border border-blue-800/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-900/60 text-blue-300 border border-blue-700 shrink-0">
-            <Briefcase className="w-5 h-5 text-amber-300" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-100 flex items-center gap-2">
-              <span>جاهز للعرض على الرئيس التنفيذي (CEO Executive Briefing)</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
-                613 أمر · 390 صنف
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              تم تجهيز شاشة العرض التنفيذية للـ CEO بملخص الصفقات المليونية، أصول المخزون، ومذكرة تحرير $1.32M رأس مال عامل.
-            </p>
-          </div>
-        </div>
 
-        <button
-          onClick={() => onNavigateTab('ceo_presentation')}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow shrink-0"
-        >
-          <span>فتح شاشة الـ CEO</span>
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </button>
-      </div>
 
       {/* 2. Three Primary Executive Pillars (Spacious & High-Value) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -188,31 +188,14 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
             </div>
 
             <button
-              onClick={handleSaveToSupabase}
-              disabled={isSavingSupabase}
-              title="حفظ لقطة من مؤشرات الـ CEO في قاعدة سوبابيز السحابية"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 text-xs font-semibold border border-emerald-700/60 transition-colors shadow-sm disabled:opacity-50"
-            >
-              <Database className={`w-4 h-4 text-emerald-400 ${isSavingSupabase ? 'animate-spin' : ''}`} />
-              <span>{isSavingSupabase ? 'جارٍ الحفظ...' : 'حفظ بسوبابيز'}</span>
-            </button>
-
-            <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-blue-400" />
-              <span>طباعة / حفظ PDF</span>
+              <Printer className="w-4 h-4" />
+              <span>طباعة / حفظ PDF المذكرة</span>
             </button>
           </div>
         </div>
-
-        {supabaseSaveStatus && (
-          <div className="mt-4 p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-xs flex items-center gap-2 animate-fade-in font-medium">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{supabaseSaveStatus}</span>
-          </div>
-        )}
       </div>
 
       {/* 2. Executive Big Picture Cockpit (The 4 Pillar Metrics) */}

@@ -14,16 +14,15 @@ import { InventoryView } from './components/views/InventoryView';
 import { ClientsView } from './components/views/ClientsView';
 import { TeamView } from './components/views/TeamView';
 import { AlertsView } from './components/views/AlertsView';
-import { DiscoveryView } from './components/views/DiscoveryView';
+import { SettingsView } from './components/views/SettingsView';
 import { CeoPresentationView } from './components/views/CeoPresentationView';
 
 import { InvoiceDetailModal } from './components/modals/InvoiceDetailModal';
 import { PromiseDateModal } from './components/modals/PromiseDateModal';
-import { ExportReportModal } from './components/modals/ExportReportModal';
-import { SupabaseConnectionModal } from './components/modals/SupabaseConnectionModal';
 
 import { StorageService } from './services/storageService';
 import { OdooApiService } from './services/odooApi';
+import odooExtractedData from './data/odooExtractedData.json';
 import {
   CustomerInvoice,
   SupplierBill,
@@ -52,30 +51,31 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [currentUser, setCurrentUser] = useState<UserProfile>(LIVE_USER_PROFILE);
 
-  // Live Data Stores (Pure Live Data Only)
-  const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
-  const [supplierBills, setSupplierBills] = useState<SupplierBill[]>([]);
-  const [orders, setOrders] = useState<SalesOrder[]>([]);
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  // Data Stores (Preloaded with real extracted Odoo dataset: 613 orders & 390 inventory items)
+  const [invoices, setInvoices] = useState<CustomerInvoice[]>(() => StorageService.getInvoices());
+  const [supplierBills, setSupplierBills] = useState<SupplierBill[]>(() => StorageService.getSupplierBills());
+  const [orders, setOrders] = useState<SalesOrder[]>(() => (odooExtractedData.salesOrders as any) || []);
+  const [stockItems, setStockItems] = useState<StockItem[]>(() => (odooExtractedData.products as any) || []);
   const [stockMoves, setStockMoves] = useState<StockMove[]>([]);
   const [clients, setClients] = useState<EgyptClient[]>([]);
   const [staffPerformance, setStaffPerformance] = useState<BUStaffPerformance[]>([]);
-  const [alerts, setAlerts] = useState<SystemAlert[]>([]);
+  const [alerts, setAlerts] = useState<SystemAlert[]>(() => StorageService.getAlerts());
 
   // Loading & Live State
-  const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
+  const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(false);
   const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(false);
-  const [syncTimestamp, setSyncTimestamp] = useState<string>('');
+  const [syncTimestamp, setSyncTimestamp] = useState<string>(() => new Date().toLocaleTimeString('ar-EG'));
   const [liveInfo, setLiveInfo] = useState<{
-    user: string;
-    uid: number;
-    company: string;
-    serverVersion: string;
     ordersCount: number;
     invoicesCount: number;
     billsCount: number;
     stockCount: number;
-  } | null>(null);
+  }>({
+    ordersCount: odooExtractedData.salesOrders?.length || 613,
+    invoicesCount: StorageService.getInvoices().length,
+    billsCount: StorageService.getSupplierBills().length,
+    stockCount: odooExtractedData.products?.length || 390,
+  });
 
   // Display Settings
   const [showVatIncluded, setShowVatIncluded] = useState<boolean>(true);
@@ -86,15 +86,13 @@ export default function App() {
     useState<CustomerInvoice | null>(null);
   const [selectedInvoicePromise, setSelectedInvoicePromise] =
     useState<CustomerInvoice | null>(null);
-  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
 
   // Fetch Live Odoo Data Function
   const loadLiveOdooData = async () => {
     setIsLiveSyncing(true);
     try {
       const liveData = await OdooApiService.fetchLiveData();
-      if (liveData && liveData.success) {
+      if (liveData && liveData.success && liveData.salesOrders?.length > 0) {
         setInvoices(liveData.invoices);
         setOrders(liveData.salesOrders);
         setSupplierBills(liveData.supplierBills);
@@ -106,10 +104,6 @@ export default function App() {
 
         setSyncTimestamp(new Date().toLocaleTimeString('ar-EG'));
         setLiveInfo({
-          user: 'Tamer Elshafey',
-          uid: 595,
-          company: 'EELAF for Engineering and Information Technology S.A.E. (مصر)',
-          serverVersion: '19.0+e',
           ordersCount: liveData.salesOrders.length,
           invoicesCount: liveData.invoices.length,
           billsCount: liveData.supplierBills.length,
@@ -117,16 +111,66 @@ export default function App() {
         });
       }
     } catch (err) {
-      console.error('Failed to load live data:', err);
+      console.warn('Live sync fallback to extracted dataset:', err);
     } finally {
       setIsLiveSyncing(false);
       setIsLoadingInitial(false);
     }
   };
 
-  // On Mount: Connect directly and load live Odoo data
+  // Pull existing saved promises & schedules from Supabase Cloud on mount
+  const loadSupabaseCloudData = async () => {
+    try {
+      const { fetchAllPromisesFromSupabase, fetchAllSupplierSchedulesFromSupabase } = await import(
+        './services/supabaseClient'
+      );
+      const [cloudPromises, cloudSchedules] = await Promise.all([
+        fetchAllPromisesFromSupabase(),
+        fetchAllSupplierSchedulesFromSupabase(),
+      ]);
+
+      if (cloudPromises && Object.keys(cloudPromises).length > 0) {
+        setInvoices((prev) =>
+          prev.map((inv) => {
+            const p = cloudPromises[inv.id] || cloudPromises[inv.odooName];
+            if (p) {
+              return {
+                ...inv,
+                promiseDate: p.promise_date || inv.promiseDate,
+                promiseStatus: (p.promise_status as any) || inv.promiseStatus,
+                followupNotes: p.notes || inv.followupNotes,
+                assignedFollowupUser: p.assigned_rep || inv.assignedFollowupUser,
+              };
+            }
+            return inv;
+          })
+        );
+      }
+
+      if (cloudSchedules && Object.keys(cloudSchedules).length > 0) {
+        setSupplierBills((prev) =>
+          prev.map((b) => {
+            const s = cloudSchedules[b.id] || cloudSchedules[b.odooName];
+            if (s) {
+              return {
+                ...b,
+                plannedPaymentDate: s.planned_date || b.plannedPaymentDate,
+                paymentNotes: s.notes || b.paymentNotes,
+              };
+            }
+            return b;
+          })
+        );
+      }
+    } catch (err) {
+      console.warn('[Supabase Cloud Load Error]', err);
+    }
+  };
+
+  // On Mount: Connect directly and load live Odoo data and Supabase cloud data
   useEffect(() => {
     loadLiveOdooData();
+    loadSupabaseCloudData();
   }, []);
 
   // Tab metadata titles
@@ -167,13 +211,13 @@ export default function App() {
       title: 'التنبيهات والتدخل السريع على البيانات الحية',
       desc: 'رصد تلقائي لأعمار الديون والفواتير المتأخرة وعتبات التحذير',
     },
-    discovery: {
-      title: 'استكشاف Odoo وفحص جودة البيانات (المرحلة 0)',
-      desc: 'فحص مسمى حقل البراند، قياس نسبة التمييز، واعتماد معيار الانتقال للمرحلة 1',
+    settings: {
+      title: 'إعدادات النظام والربط السحابي',
+      desc: 'إدارة اتصال ومزامنة سوبابيز، خادم Odoo، عتبات التنبيهات، والذاكرة المؤقتة',
     },
   };
 
-  // Action: Save Promise Date to Local State
+  // Action: Save Promise Date to StorageService (Persists to localStorage & Supabase)
   const handleSavePromise = (
     invoiceId: string,
     promiseDate: string,
@@ -181,41 +225,28 @@ export default function App() {
     notes: string,
     assignedRep: string
   ) => {
-    setInvoices((prev) =>
-      prev.map((inv) => {
-        if (inv.id === invoiceId) {
-          return {
-            ...inv,
-            promiseDate,
-            promiseStatus: status,
-            followupNotes: notes,
-            assignedFollowupUser: assignedRep,
-            lastContactDate: new Date().toISOString().split('T')[0],
-          };
-        }
-        return inv;
-      })
+    const updated = StorageService.updateInvoicePromise(
+      invoiceId,
+      promiseDate,
+      status,
+      notes,
+      assignedRep
     );
+    setInvoices(updated);
   };
 
-  // Action: Update Supplier Schedule
+  // Action: Update Supplier Schedule (Persists to localStorage & Supabase)
   const handleUpdateSupplierSchedule = (
     billId: string,
     plannedDate: string,
     notes: string
   ) => {
-    setSupplierBills((prev) =>
-      prev.map((b) => {
-        if (b.id === billId) {
-          return {
-            ...b,
-            plannedPaymentDate: plannedDate,
-            paymentNotes: notes,
-          };
-        }
-        return b;
-      })
+    const updated = StorageService.updateSupplierPaymentSchedule(
+      billId,
+      plannedDate,
+      notes
     );
+    setSupplierBills(updated);
   };
 
   const handleOpenAlertRecord = (alert: SystemAlert) => {
@@ -248,49 +279,15 @@ export default function App() {
           tabDescription={currentMeta.desc}
           currentUser={currentUser}
           onChangeUser={setCurrentUser}
-          onOpenDiscovery={() => setCurrentTab('discovery')}
+          onOpenSettings={() => setCurrentTab('settings')}
           onOpenCeoPresentation={() => setCurrentTab('ceo_presentation')}
-          onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           showVatIncluded={showVatIncluded}
           onToggleVat={() => setShowVatIncluded(!showVatIncluded)}
           isLiveSyncing={isLiveSyncing}
-          isLiveMode={true}
           onTriggerLiveSync={loadLiveOdooData}
-          onToggleDataSource={loadLiveOdooData}
         />
-
-        {/* Live Odoo Production Banner */}
-        <div className="bg-emerald-950/70 border-b border-emerald-800/80 px-6 py-2 flex items-center justify-between text-xs text-emerald-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
-              <strong>البيانات الحية المباشرة من Odoo مفعلة حصراً:</strong> قاعدة <code className="font-mono bg-emerald-900 px-1.5 py-0.5 rounded text-white font-semibold">eelaf-master-21952014</code> · المستخدم: <strong className="text-white">Tamer Elshafey (UID: 595)</strong> · شركة إيلاف مصر (ID: 1) · فريق <strong className="text-white">Physical Security BU</strong>
-            </span>
-          </div>
-          <div className="hidden lg:flex items-center gap-4 font-mono text-[11px] text-emerald-300">
-            {liveInfo && (
-              <>
-                <span>{liveInfo.ordersCount} أمر بيع</span>
-                <span>·</span>
-                <span>{liveInfo.invoicesCount} فاتورة</span>
-                <span>·</span>
-                <span>{liveInfo.stockCount} صنف مخزن</span>
-                <span>·</span>
-                <span>آخر تحديث: {syncTimestamp}</span>
-              </>
-            )}
-            <button
-              onClick={loadLiveOdooData}
-              disabled={isLiveSyncing}
-              className="px-2.5 py-1 rounded bg-emerald-800 hover:bg-emerald-700 text-white font-sans text-xs flex items-center gap-1 transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? 'animate-spin' : ''}`} />
-              <span>تحديث حي</span>
-            </button>
-          </div>
-        </div>
 
         {/* Viewport Scroll Container */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
@@ -380,9 +377,10 @@ export default function App() {
                   />
                 )}
 
-                {currentTab === 'discovery' && (
-                  <DiscoveryView
-                    onOpenReportModal={() => setIsReportModalOpen(true)}
+                {currentTab === 'settings' && (
+                  <SettingsView
+                    invoices={invoices}
+                    supplierBills={supplierBills}
                     onRefreshData={loadLiveOdooData}
                   />
                 )}
@@ -407,22 +405,6 @@ export default function App() {
         invoice={selectedInvoicePromise}
         onClose={() => setSelectedInvoicePromise(null)}
         onSave={handleSavePromise}
-      />
-
-      {/* Official Phase 0 Audit Dossier Modal */}
-      {isReportModalOpen && (
-        <ExportReportModal
-          report={OdooApiService.generatePhase0Dossier(
-            StorageService.getOdooConfig()
-          )}
-          onClose={() => setIsReportModalOpen(false)}
-        />
-      )}
-
-      {/* Supabase Connection & Cloud Schema Modal */}
-      <SupabaseConnectionModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
       />
     </div>
   );

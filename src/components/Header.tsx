@@ -1,13 +1,9 @@
 import React from 'react';
 import {
   Search,
-  DollarSign,
-  UserCheck,
   RefreshCw,
-  Compass,
-  CheckCircle2,
   Briefcase,
-  Database
+  Settings
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { CURRENT_EXCHANGE_RATE } from '../data/mockData';
@@ -18,27 +14,22 @@ interface HeaderProps {
   tabDescription: string;
   currentUser: UserProfile;
   onChangeUser: (user: UserProfile) => void;
-  onOpenDiscovery: () => void;
+  onOpenSettings: () => void;
   onOpenCeoPresentation?: () => void;
-  onOpenSupabaseModal?: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   showVatIncluded: boolean;
   onToggleVat: () => void;
   isLiveSyncing: boolean;
-  isLiveMode: boolean;
   onTriggerLiveSync: () => void;
-  onToggleDataSource: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   tabTitle,
   tabDescription,
-  currentUser,
-  onOpenDiscovery,
+  onOpenSettings,
   onOpenCeoPresentation,
-  onOpenSupabaseModal,
   searchQuery,
   onSearchChange,
   showVatIncluded,
@@ -47,51 +38,39 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerLiveSync,
 }) => {
   return (
-    <header className="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
-      {/* Zone 1 (Right in RTL): Title & Quiet Connection Status */}
+    <header className="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
+      {/* Title & Context */}
       <div className="flex items-center gap-3 min-w-0">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-slate-400 font-medium">إدارة PHY BU</span>
-            <span className="text-slate-600">/</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">PHY BU</span>
+            <span className="text-slate-600 hidden sm:inline">/</span>
             <h1 className="text-sm font-bold text-slate-100 whitespace-nowrap">{tabTitle}</h1>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Odoo متصل
-            </span>
-            <button
-              onClick={onOpenSupabaseModal}
-              title="فحص حالة مستودع سوبابيز السحابي (Supabase Cloud)"
-              className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 transition-colors cursor-pointer"
-            >
-              <Database className="w-3 h-3 text-emerald-400" />
-              <span>Supabase سحابي</span>
-            </button>
           </div>
-          <p className="text-[11px] text-slate-400 hidden xl:block truncate">
+          <p className="text-[11px] text-slate-400 hidden lg:block truncate max-w-xl">
             {tabDescription}
           </p>
         </div>
       </div>
 
-      {/* Zone 2 (Middle in RTL): Search Input */}
-      <div className="hidden md:flex items-center justify-center flex-1 max-w-sm px-4">
+      {/* Middle: Clean Search Bar */}
+      <div className="hidden md:flex items-center justify-center flex-1 max-w-md px-6">
         <div className="relative w-full">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="بحث برقم الأمر، الفاتورة، العميل..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 pr-8 pl-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            placeholder="بحث بالأمر، الفاتورة، أو اسم العميل..."
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 pr-8 pl-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
           />
         </div>
       </div>
 
-      {/* Zone 3 (Left in RTL): Currency, Live Refresh & User */}
+      {/* Actions: Currency, CEO Mode, Live Update, Settings */}
       <div className="flex items-center gap-2.5 shrink-0">
-        {/* Currency & Tax Pill */}
-        <div className="hidden sm:flex items-center gap-1.5 bg-slate-950 border border-slate-800 px-2 py-1 rounded-md text-[11px] font-mono">
+        {/* Currency & VAT Toggle */}
+        <div className="hidden sm:flex items-center gap-2 bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-md text-[11px] font-mono">
           <span className="text-emerald-400 font-semibold">$ USD</span>
           <span className="text-slate-600">·</span>
           <span className="text-slate-400">{CURRENT_EXCHANGE_RATE} ج.م</span>
@@ -105,54 +84,44 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Executive CEO Presentation Button */}
-        {onOpenCeoPresentation && (
+        {/* CEO Briefing Button */}
+        {onOpenCeoPresentation && currentTab !== 'ceo_presentation' && (
           <button
             onClick={onOpenCeoPresentation}
-            title="فتح شاشة العرض التنفيذي للرئيس التنفيذي"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md ${
-              currentTab === 'ceo_presentation'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white'
-            }`}
+            title="فتح تقرير العرض التنفيذي للـ CEO"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-sm"
           >
             <Briefcase className="w-3.5 h-3.5" />
-            <span>عرض الـ CEO</span>
+            <span className="hidden sm:inline">عرض الـ CEO</span>
           </button>
         )}
 
-        {/* Live Refresh Button */}
+        {/* Live Refresh */}
         <button
           onClick={onTriggerLiveSync}
           disabled={isLiveSyncing}
-          title="تحديث فوري من قاعدة Odoo"
+          title="تحديث البيانات"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">
+          <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? 'animate-spin text-blue-400' : ''}`} />
+          <span className="hidden md:inline">
             {isLiveSyncing ? 'جارٍ التحديث...' : 'تحديث'}
           </span>
         </button>
 
-        {/* Discovery Tool Button */}
+        {/* Settings Button */}
         <button
-          onClick={onOpenDiscovery}
-          title="أداة فحص Odoo والمرحلة 0"
-          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition-colors flex items-center gap-1"
+          onClick={onOpenSettings}
+          title="الإعدادات والربط السحابي"
+          className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border ${
+            currentTab === 'settings'
+              ? 'bg-blue-600 text-white border-blue-500'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+          }`}
         >
-          <Compass className="w-4 h-4 text-emerald-400" />
-          <span className="hidden md:inline">المرحلة 0</span>
+          <Settings className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">الإعدادات</span>
         </button>
-
-        {/* User Pill */}
-        <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg">
-          <div className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold text-[10px]">
-            TE
-          </div>
-          <span className="text-xs font-semibold text-slate-200 hidden sm:inline">
-            {currentUser.name}
-          </span>
-        </div>
       </div>
     </header>
   );
