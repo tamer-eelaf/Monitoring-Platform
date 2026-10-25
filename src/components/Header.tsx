@@ -6,7 +6,8 @@ import {
   RefreshCw,
   Compass,
   CheckCircle2,
-  Briefcase
+  Briefcase,
+  Database
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { CURRENT_EXCHANGE_RATE } from '../data/mockData';
@@ -19,6 +20,7 @@ interface HeaderProps {
   onChangeUser: (user: UserProfile) => void;
   onOpenDiscovery: () => void;
   onOpenCeoPresentation?: () => void;
+  onOpenSupabaseModal?: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   showVatIncluded: boolean;
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onOpenDiscovery,
   onOpenCeoPresentation,
+  onOpenSupabaseModal,
   searchQuery,
   onSearchChange,
   showVatIncluded,
@@ -48,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Zone 1 (Right in RTL): Title & Quiet Connection Status */}
       <div className="flex items-center gap-3 min-w-0">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-400 font-medium">إدارة PHY BU</span>
             <span className="text-slate-600">/</span>
             <h1 className="text-sm font-bold text-slate-100 whitespace-nowrap">{tabTitle}</h1>
@@ -56,6 +59,14 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Odoo متصل
             </span>
+            <button
+              onClick={onOpenSupabaseModal}
+              title="فحص حالة مستودع سوبابيز السحابي (Supabase Cloud)"
+              className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 transition-colors cursor-pointer"
+            >
+              <Database className="w-3 h-3 text-emerald-400" />
+              <span>Supabase سحابي</span>
+            </button>
           </div>
           <p className="text-[11px] text-slate-400 hidden xl:block truncate">
             {tabDescription}

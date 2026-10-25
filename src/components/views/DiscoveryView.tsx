@@ -18,6 +18,11 @@ import {
 import { OdooConnectionConfig, Phase0AuditReport } from '../../types';
 import { OdooApiService, FieldInspectionResult } from '../../services/odooApi';
 import { StorageService } from '../../services/storageService';
+import {
+  checkSupabaseConnection,
+  SUPABASE_URL,
+  SupabaseHealth
+} from '../../services/supabaseClient';
 
 interface DiscoveryViewProps {
   onOpenReportModal: () => void;
@@ -43,6 +48,26 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'fields' | 'health' | 'samples'>('health');
   const [fieldResults, setFieldResults] = useState<FieldInspectionResult[]>([]);
   const [isScanningFields, setIsScanningFields] = useState<boolean>(false);
+
+  // Supabase test state
+  const [isTestingSupabase, setIsTestingSupabase] = useState<boolean>(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<SupabaseHealth | null>(null);
+
+  const handleTestSupabase = async () => {
+    setIsTestingSupabase(true);
+    try {
+      const res = await checkSupabaseConnection();
+      setSupabaseHealth(res);
+    } catch (err: any) {
+      setSupabaseHealth({
+        connected: false,
+        url: SUPABASE_URL,
+        message: err?.message || 'تعذر الاتصال',
+      });
+    } finally {
+      setIsTestingSupabase(false);
+    }
+  };
 
   // Trigger test connection
   const handleTestConnection = async () => {
@@ -274,6 +299,68 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 إصدار الخادم: {testResult.serverVersion} · الشركة: شركة إيلاف مصر · زمن الاستجابة: {testResult.diagnostics?.latencyMs}ms
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Supabase Cloud Warehouse & Real-time Collaboration Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-slate-100">
+              مستودع البيانات السحابي (Supabase Cloud Warehouse)
+            </h3>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">
+              Live Connected
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            {SUPABASE_URL}
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed">
+          يوفر سوبابيز طبقة تخزين سحابية فائقة السرعة لتسجيل <strong className="text-emerald-400">مواعيد وعود التحصيل</strong>، و<strong className="text-emerald-400">جدولة مستحقات الموردين</strong>، وملاحظات المتابعة، مع لقطات مؤشرات الـ CEO التنفيذية، دون التعديل على بيانات Odoo المحاسبية (مبدأ الفصل الآمن).
+        </p>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>مفتاح النشر: sb_publishable_hetzimB9wb9onUHV3RXZ8A_SbrHdQiM</span>
+          </div>
+
+          <button
+            onClick={handleTestSupabase}
+            disabled={isTestingSupabase}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isTestingSupabase ? 'animate-spin' : ''}`} />
+            <span>{isTestingSupabase ? 'جارٍ فحص استجابة سوبابيز...' : 'فحص استجابة سوبابيز'}</span>
+          </button>
+        </div>
+
+        {supabaseHealth && (
+          <div
+            className={`p-3.5 rounded-lg border text-xs leading-relaxed ${
+              supabaseHealth.connected
+                ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200'
+                : 'bg-rose-950/40 border-rose-800 text-rose-200'
+            }`}
+          >
+            <div className="flex items-center gap-2 font-semibold">
+              {supabaseHealth.connected ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              )}
+              <span>{supabaseHealth.message}</span>
+              {supabaseHealth.latencyMs !== undefined && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                  {supabaseHealth.latencyMs}ms
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

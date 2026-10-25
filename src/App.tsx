@@ -20,6 +20,7 @@ import { CeoPresentationView } from './components/views/CeoPresentationView';
 import { InvoiceDetailModal } from './components/modals/InvoiceDetailModal';
 import { PromiseDateModal } from './components/modals/PromiseDateModal';
 import { ExportReportModal } from './components/modals/ExportReportModal';
+import { SupabaseConnectionModal } from './components/modals/SupabaseConnectionModal';
 
 import { StorageService } from './services/storageService';
 import { OdooApiService } from './services/odooApi';
@@ -86,6 +87,7 @@ export default function App() {
   const [selectedInvoicePromise, setSelectedInvoicePromise] =
     useState<CustomerInvoice | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
 
   // Fetch Live Odoo Data Function
   const loadLiveOdooData = async () => {
@@ -248,6 +250,7 @@ export default function App() {
           onChangeUser={setCurrentUser}
           onOpenDiscovery={() => setCurrentTab('discovery')}
           onOpenCeoPresentation={() => setCurrentTab('ceo_presentation')}
+          onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           showVatIncluded={showVatIncluded}
@@ -415,6 +418,12 @@ export default function App() {
           onClose={() => setIsReportModalOpen(false)}
         />
       )}
+
+      {/* Supabase Connection & Cloud Schema Modal */}
+      <SupabaseConnectionModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+      />
     </div>
   );
 }
