@@ -30,9 +30,9 @@ import {
 const KEYS = {
   INVOICES: 'phy_bu_invoices_v2',
   SUPPLIERS: 'phy_bu_suppliers_v2',
-  ORDERS: 'phy_bu_orders_v2',
+  ORDERS: 'phy_bu_orders_v3',
   STOCK: 'phy_bu_stock_v2',
-  CLIENTS: 'phy_bu_clients_v2',
+  CLIENTS: 'phy_bu_clients_v4',
   STAFF: 'phy_bu_staff_v2',
   ALERTS: 'phy_bu_alerts_v2',
   ODOO_CONFIG: 'phy_bu_odoo_config_v2',
@@ -232,8 +232,15 @@ export class StorageService {
       const data = localStorage.getItem(KEYS.CLIENTS);
       if (data) {
         const parsed = JSON.parse(data);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasPalmHills = parsed.some((c: EgyptClient) => (c.name || '').toLowerCase().includes('palm'));
+          const hasRealPhones = parsed.some((c: EgyptClient) => c.phone && !c.phone.includes('000 0000'));
+          if (hasPalmHills && hasRealPhones && parsed.length >= 220) {
+            return parsed;
+          }
+        }
       }
+      StorageService.saveClients(INITIAL_CLIENTS);
       return INITIAL_CLIENTS;
     } catch {
       return INITIAL_CLIENTS;

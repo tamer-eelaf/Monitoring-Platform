@@ -532,7 +532,7 @@ async function startServer() {
         ],
         {
           fields: ['name', 'phone', 'email', 'city', 'user_id'],
-          limit: 20,
+          limit: 500,
         },
       ]);
 
@@ -653,23 +653,61 @@ async function startServer() {
         },
       ];
 
-      // Load full extracted Odoo dataset (from Tamer's CSVs)
+      // Load full extracted Odoo dataset (from Tamer's CSVs: 613 orders, 390 products, 123 invoices, 216 clients, 30 staff)
       let fullSalesOrders = transformedOrders;
       let fullStockItems = transformedStock;
+      let fullInvoices = transformedInvoices;
+      let fullClients = transformedClients;
+      let fullStaffPerformance = liveStaffPerformance;
+
       const extractedPath = path.resolve(__dirname, 'src/data/odooExtractedData.json');
       if (fs.existsSync(extractedPath)) {
         try {
           const extracted = JSON.parse(fs.readFileSync(extractedPath, 'utf8'));
           if (extracted.salesOrders && Array.isArray(extracted.salesOrders)) {
-            // Deduplicate: keep live transformed if present, append rest
+            const extractedMap = new Map(extracted.salesOrders.map((o: any) => [o.odooName, o]));
+            const mergedLive = transformedOrders.map((liveOrd: any) => {
+              const ext: any = extractedMap.get(liveOrd.odooName);
+              if (ext) {
+                return {
+                  ...ext,
+                  ...liveOrd,
+                  opportunity: liveOrd.opportunity || ext.opportunity,
+                  currency: liveOrd.currency || ext.currency,
+                  untaxedUSD: liveOrd.untaxedUSD || ext.untaxedUSD,
+                  originalUntaxed: liveOrd.originalUntaxed || ext.originalUntaxed,
+                  upcomingPayment: liveOrd.upcomingPayment !== undefined ? liveOrd.upcomingPayment : ext.upcomingPayment,
+                  rawStatus: liveOrd.rawStatus || ext.rawStatus,
+                  deliveryStatus: liveOrd.deliveryStatus || ext.deliveryStatus,
+                  invoiceStatus: liveOrd.invoiceStatus || ext.invoiceStatus,
+                };
+              }
+              return liveOrd;
+            });
             const existingRefs = new Set(transformedOrders.map((o: any) => o.odooName));
             const additionalOrders = extracted.salesOrders.filter((o: any) => !existingRefs.has(o.odooName));
-            fullSalesOrders = [...transformedOrders, ...additionalOrders];
+            fullSalesOrders = [...mergedLive, ...additionalOrders];
           }
           if (extracted.products && Array.isArray(extracted.products)) {
             const existingSkus = new Set(transformedStock.map((s: any) => s.sku));
             const additionalStock = extracted.products.filter((p: any) => !existingSkus.has(p.sku));
             fullStockItems = [...transformedStock, ...additionalStock];
+          }
+          if (extracted.invoices && Array.isArray(extracted.invoices)) {
+            const existingInvoices = new Set(transformedInvoices.map((i: any) => i.odooName));
+            const additionalInvoices = extracted.invoices.filter((i: any) => !existingInvoices.has(i.odooName));
+            fullInvoices = [...transformedInvoices, ...additionalInvoices];
+          }
+          if (extracted.clients && Array.isArray(extracted.clients)) {
+            // Guarantee all strategic developer accounts (Palm Hills, etc.) and real clients are first
+            const extractedNames = new Set(extracted.clients.map((c: any) => c.name.toLowerCase().trim()));
+            const extraLive = transformedClients.filter((c: any) => !extractedNames.has(c.name.toLowerCase().trim()));
+            fullClients = [...extracted.clients, ...extraLive];
+          }
+          if (extracted.staffPerformance && Array.isArray(extracted.staffPerformance)) {
+            const existingStaff = new Set(liveStaffPerformance.map((s: any) => s.name.toLowerCase().trim()));
+            const additionalStaff = extracted.staffPerformance.filter((s: any) => !existingStaff.has(s.name.toLowerCase().trim()));
+            fullStaffPerformance = [...liveStaffPerformance, ...additionalStaff];
           }
         } catch (e) {
           console.error('Error loading odooExtractedData.json:', e);
@@ -682,18 +720,18 @@ async function startServer() {
         server: 'https://www.eelaf.com/jsonrpc',
         company: 'EELAF for Engineering and Information Technology S.A.E. (مصر)',
         totalSalesOrders: fullSalesOrders.length,
-        totalInvoices: transformedInvoices.length,
+        totalInvoices: fullInvoices.length,
         totalSupplierBills: transformedBills.length,
         totalStockItems: fullStockItems.length,
         totalStockMoves: transformedMoves.length,
-        totalClients: transformedClients.length,
+        totalClients: fullClients.length,
         salesOrders: fullSalesOrders,
-        invoices: transformedInvoices,
+        invoices: fullInvoices,
         supplierBills: transformedBills,
         stockItems: fullStockItems,
         stockMoves: transformedMoves,
-        clients: transformedClients,
-        staffPerformance: liveStaffPerformance,
+        clients: fullClients,
+        staffPerformance: fullStaffPerformance,
       });
     } catch (err: any) {
       console.error('Error fetching live Odoo data:', err);

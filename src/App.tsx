@@ -93,14 +93,47 @@ export default function App() {
     try {
       const liveData = await OdooApiService.fetchLiveData();
       if (liveData && liveData.success && liveData.salesOrders?.length > 0) {
-        setInvoices(liveData.invoices);
         setOrders(liveData.salesOrders);
-        setSupplierBills(liveData.supplierBills);
-        setStockItems(liveData.stockItems);
-        setStockMoves(liveData.stockMoves);
-        setClients(liveData.clients);
-        setStaffPerformance(liveData.staffPerformance);
-        setAlerts(liveData.alerts);
+        if (liveData.invoices && liveData.invoices.length > 0) {
+          setInvoices(liveData.invoices);
+        }
+        if (liveData.supplierBills && liveData.supplierBills.length > 0) {
+          setSupplierBills(liveData.supplierBills);
+        }
+        if (liveData.stockItems && liveData.stockItems.length > 0) {
+          setStockItems(liveData.stockItems);
+        }
+        if (liveData.stockMoves && liveData.stockMoves.length > 0) {
+          setStockMoves(liveData.stockMoves);
+        }
+        
+        // Guarantee all 216 corporate clients are preserved:
+        if (liveData.clients && liveData.clients.length > 0) {
+          const currentClients = StorageService.getClients();
+          if (liveData.clients.length >= currentClients.length) {
+            setClients(liveData.clients);
+          } else {
+            const existingNames = new Set(liveData.clients.map((c: any) => c.name.toLowerCase().trim()));
+            const remaining = currentClients.filter((c: any) => !existingNames.has(c.name.toLowerCase().trim()));
+            const merged = [...liveData.clients, ...remaining];
+            setClients(merged);
+          }
+        }
+        
+        if (liveData.staffPerformance && liveData.staffPerformance.length > 0) {
+          const currentStaff = StorageService.getStaffPerformance();
+          if (liveData.staffPerformance.length >= currentStaff.length) {
+            setStaffPerformance(liveData.staffPerformance);
+          } else {
+            const existingStaff = new Set(liveData.staffPerformance.map((s: any) => s.name.toLowerCase().trim()));
+            const remaining = currentStaff.filter((s: any) => !existingStaff.has(s.name.toLowerCase().trim()));
+            setStaffPerformance([...liveData.staffPerformance, ...remaining]);
+          }
+        }
+        
+        if (liveData.alerts && liveData.alerts.length > 0) {
+          setAlerts(liveData.alerts);
+        }
 
         setSyncTimestamp(new Date().toLocaleTimeString('ar-EG'));
         setLiveInfo({
@@ -323,6 +356,9 @@ export default function App() {
                   <CeoPresentationView
                     salesOrders={orders}
                     stockItems={stockItems}
+                    invoices={invoices}
+                    supplierBills={supplierBills}
+                    clients={clients}
                     onNavigateTab={setCurrentTab}
                   />
                 )}
@@ -346,6 +382,7 @@ export default function App() {
                 {currentTab === 'orders' && (
                   <OrdersView
                     orders={orders}
+                    clients={clients}
                     showVatIncluded={showVatIncluded}
                   />
                 )}
@@ -360,6 +397,10 @@ export default function App() {
                 {currentTab === 'clients' && (
                   <ClientsView
                     clients={clients}
+                    orders={orders}
+                    onUpdateClient={(updated) => {
+                      setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+                    }}
                   />
                 )}
 

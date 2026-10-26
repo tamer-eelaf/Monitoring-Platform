@@ -52,6 +52,7 @@ export interface SalesOrder {
   totalEGP: number;
   deliveryDate?: string;
   deliveredStatus: 'not_delivered' | 'partial' | 'delivered';
+  deliveryStatus?: string;
   invoiceStatus?: string;
   deliveryStatusRaw?: string;
   upcomingPayment?: number;
@@ -62,6 +63,12 @@ export interface SalesOrder {
   isMixed: boolean;
   buPortionUSD: number;
   buPercentage: number;
+  originalAmount?: number;
+  originalUntaxed?: number;
+  untaxedUSD?: number;
+  rawStatus?: string;
+  orderTime?: string;
+  department?: string;
 }
 
 export interface CustomerInvoice {
@@ -154,6 +161,8 @@ export interface EgyptClient {
   id: string;
   odooPartnerId: number;
   name: string;
+  nameAr?: string;
+  clientType?: 'developer_account' | 'contractor_integrator' | 'enterprise_corporate';
   contactPerson: string;
   phone: string;
   email: string;
@@ -166,6 +175,10 @@ export interface EgyptClient {
   lastOrderDate: string;
   daysSinceLastPurchase: number;
   creditRating: 'A+' | 'A' | 'B' | 'C' | 'Risk';
+  ordersCount?: number;
+  projects?: string[];
+  associatedContractors?: string[];
+  notes?: string;
 }
 
 export interface BUStaffPerformance {

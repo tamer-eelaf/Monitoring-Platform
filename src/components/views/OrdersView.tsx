@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   PackageSearch,
   CheckCircle2,
@@ -7,19 +7,25 @@ import {
   Split,
   ChevronDown,
   ChevronUp,
-  Search
+  Search,
+  Phone,
+  PhoneCall,
+  User,
+  Building
 } from 'lucide-react';
-import { SalesOrder, OrderStatus } from '../../types';
+import { SalesOrder, OrderStatus, EgyptClient } from '../../types';
 import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
 import { Pagination } from '../common/Pagination';
 
 interface OrdersViewProps {
   orders: SalesOrder[];
+  clients?: EgyptClient[];
   showVatIncluded: boolean;
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
+  clients = [],
   showVatIncluded,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -28,6 +34,41 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [filterUninvoiced, setFilterUninvoiced] = useState<boolean>(false);
   const [search, setSearch] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Fast client lookup map
+  const clientMap = useMemo(() => {
+    const map = new Map<string, EgyptClient>();
+    if (clients) {
+      clients.forEach((c) => {
+        map.set((c.name || '').toLowerCase().trim(), c);
+        if (c.nameAr) map.set((c.nameAr || '').toLowerCase().trim(), c);
+      });
+    }
+    return map;
+  }, [clients]);
+
+  const findClientForOrder = (ord: SalesOrder): EgyptClient | undefined => {
+    if (!clients || clients.length === 0) return undefined;
+    const cName = (ord.customerName || '').toLowerCase().trim();
+    const directMatch = clientMap.get(cName);
+    if (directMatch) return directMatch;
+
+    const opp = (ord.opportunity || '').toLowerCase();
+    if (opp.includes('palm')) {
+      return clients.find((c) => (c.name || '').toLowerCase().includes('palm'));
+    }
+    if (opp.includes('talaat') || opp.includes('madinaty') || opp.includes('rehab')) {
+      return clients.find((c) => (c.name || '').toLowerCase().includes('talaat'));
+    }
+    if (opp.includes('mostakbal') || opp.includes('pharaonic')) {
+      return clients.find((c) => (c.name || '').toLowerCase().includes('mostakbal'));
+    }
+    if (opp.includes('emaar')) {
+      return clients.find((c) => (c.name || '').toLowerCase().includes('emaar'));
+    }
+
+    return clients.find((c) => (c.name || '').toLowerCase().includes(cName));
+  };
   const PAGE_SIZE = 8;
 
   const filteredOrders = orders.filter((ord) => {
@@ -39,6 +80,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       return (
         ord.odooName.toLowerCase().includes(q) ||
         ord.customerName.toLowerCase().includes(q) ||
+        (ord.opportunity && ord.opportunity.toLowerCase().includes(q)) ||
         ord.salesRepName.toLowerCase().includes(q)
       );
     }
@@ -126,6 +168,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               ? ord.totalWithTaxUSD
               : ord.totalUSD;
 
+            const clientInfo = findClientForOrder(ord);
+
             return (
               <div
                 key={ord.id}
@@ -136,7 +180,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   onClick={() => toggleExpand(ord.id)}
                   className="p-4 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-sm text-blue-400">
                         {ord.odooName}
@@ -148,10 +192,38 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-semibold text-slate-200">
+                    <h3 className="text-sm font-bold text-slate-100">
                       {ord.customerName}
                     </h3>
-                    <div className="text-xs text-slate-400 flex items-center gap-2">
+                    {ord.opportunity && (
+                      <div className="text-xs text-blue-300 font-medium">
+                        المشروع / الفرصة: {ord.opportunity}
+                      </div>
+                    )}
+
+                    {/* Prominent Client Contact Person & Phone */}
+                    {clientInfo && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs pt-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                          <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          <span className="text-slate-400 text-[11px]">مسؤول الاتصال:</span>
+                          <span className="font-semibold text-slate-200">{clientInfo.contactPerson}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-emerald-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800 font-mono text-[11px]">
+                          <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <a
+                            href={`tel:${clientInfo.phone.replace(/\s+/g, '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-bold hover:underline dir-ltr text-emerald-300"
+                            title="اتصال هاتفي مباشر"
+                          >
+                            {clientInfo.phone}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-slate-400 flex items-center gap-2 pt-0.5">
                       <span>تاريخ: <span className="font-mono">{ord.date}</span></span>
                       <span>·</span>
                       <span>المندوب: <strong className="text-slate-200">{ord.salesRepName}</strong></span>
