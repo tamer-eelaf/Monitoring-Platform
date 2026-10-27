@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for the PHY BU (Hikvision / Velasea / AMG) Egypt Monitoring Platform & Phase 0 Odoo Discovery Engine.",
-  "updatedAt":  "2026-10-24T18:10:03.242095350Z",
+  "summary":  "خطة تطوير متكاملة لتحسين مخرجات منصة إدارة توكيلات EELAF تركز على:\n1. لوحات تحكم بصرية ورسوم بيانية تفاعلية حية (Sales Velocity, Cash Inflows, Brand Distribution).\n2. تقرير تنفيذي رسمي منسق بشعار وبيانات الشركة معتمد لاجتماعات مجلس الإدارة والطباعة (PDF/Print).\n3. محرك تحليلي لربحية المشاريع وهوامش الربح ومعدل دوران المخزون ورأس المال العامل.",
+  "updatedAt":  "2026-10-27T10:52:33.754199966Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calendar,
   Clock,
@@ -8,14 +8,17 @@ import {
   Edit3,
   Receipt,
   Download,
-  AlertCircle
+  AlertCircle,
+  Phone,
+  User
 } from 'lucide-react';
-import { CustomerInvoice } from '../../types';
+import { CustomerInvoice, EgyptClient } from '../../types';
 import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
 import { Pagination } from '../common/Pagination';
 
 interface CollectionsViewProps {
   invoices: CustomerInvoice[];
+  clients?: EgyptClient[];
   showVatIncluded: boolean;
   onSelectInvoice: (invoice: CustomerInvoice) => void;
   onEditPromise: (invoice: CustomerInvoice) => void;
@@ -23,6 +26,7 @@ interface CollectionsViewProps {
 
 export const CollectionsView: React.FC<CollectionsViewProps> = ({
   invoices,
+  clients = [],
   showVatIncluded,
   onSelectInvoice,
   onEditPromise,
@@ -33,6 +37,26 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   const [search, setSearch] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const PAGE_SIZE = 8;
+
+  // Fast client lookup map
+  const clientMap = useMemo(() => {
+    const map = new Map<string, EgyptClient>();
+    if (clients) {
+      clients.forEach((c) => {
+        map.set((c.name || '').toLowerCase().trim(), c);
+        if (c.nameAr) map.set((c.nameAr || '').toLowerCase().trim(), c);
+      });
+    }
+    return map;
+  }, [clients]);
+
+  const findClientForInvoice = (inv: CustomerInvoice): EgyptClient | undefined => {
+    if (!clients || clients.length === 0) return undefined;
+    const cName = (inv.customerName || '').toLowerCase().trim();
+    const directMatch = clientMap.get(cName);
+    if (directMatch) return directMatch;
+    return clients.find((c) => (c.name || '').toLowerCase().includes(cName));
+  };
 
   // Filtered invoices
   const filteredInvoices = invoices.filter((inv) => {
@@ -272,14 +296,34 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Customer & Rep */}
+                      {/* Customer & Rep & Contact */}
                       <td className="py-3 px-4 font-sans">
-                        <div className="font-semibold text-slate-200">
-                          {inv.customerName}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {inv.salesRepName}
-                        </div>
+                        {(() => {
+                          const invClient = findClientForInvoice(inv);
+                          return (
+                            <>
+                              <div className="font-semibold text-slate-200">
+                                {inv.customerName}
+                              </div>
+                              {invClient && (
+                                <div className="text-[11px] text-emerald-400 font-mono mt-0.5 flex items-center gap-1 font-bold">
+                                  <Phone className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                                  <a
+                                    href={`tel:${invClient.phone.replace(/\s+/g, '')}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="hover:underline dir-ltr text-emerald-300"
+                                    title="اتصال مباشر بالعميل"
+                                  >
+                                    {invClient.phone}
+                                  </a>
+                                </div>
+                              )}
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                المندوب: {inv.salesRepName}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </td>
 
                       {/* Total USD */}

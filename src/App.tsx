@@ -366,6 +366,7 @@ export default function App() {
                 {currentTab === 'collections' && (
                   <CollectionsView
                     invoices={invoices}
+                    clients={clients}
                     showVatIncluded={showVatIncluded}
                     onSelectInvoice={setSelectedInvoiceDetail}
                     onEditPromise={setSelectedInvoicePromise}
