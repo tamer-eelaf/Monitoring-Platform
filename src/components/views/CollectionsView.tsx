@@ -15,6 +15,7 @@ import {
 import { CustomerInvoice, EgyptClient } from '../../types';
 import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
 import { Pagination } from '../common/Pagination';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface CollectionsViewProps {
   invoices: CustomerInvoice[];
@@ -31,6 +32,20 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   onSelectInvoice,
   onEditPromise,
 }) => {
+  if (invoices.length === 0) {
+    return (
+      <DataGapNotice
+        title="فواتير العملاء والتحصيلات (AR Invoices)"
+        why="لا يوجد في تصديرات Odoo الحالية بيان بالفواتير أو المبالغ المتبقية أو المدفوعات. ما كان يظهر سابقاً كان مفترضاً وتم إيقافه لمنع تتبع مديونيات غير حقيقية."
+        needs={[
+          'تصدير الفواتير (account.move): رقم الفاتورة، العميل، تاريخ الفاتورة وتاريخ الاستحقاق',
+          'المبلغ الإجمالي والمتبقي (amount_residual) وحالة السداد',
+          'ربط الفاتورة برقم أمر البيع'
+        ]}
+      />
+    );
+  }
+
   const [selectedBracket, setSelectedBracket] = useState<string>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [onlyMixed, setOnlyMixed] = useState<boolean>(false);
@@ -305,7 +320,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                               <div className="font-semibold text-slate-200">
                                 {inv.customerName}
                               </div>
-                              {invClient && (
+                              {invClient && invClient.phone ? (
                                 <div className="text-[11px] text-emerald-400 font-mono mt-0.5 flex items-center gap-1 font-bold">
                                   <Phone className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
                                   <a
@@ -317,7 +332,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                                     {invClient.phone}
                                   </a>
                                 </div>
-                              )}
+                              ) : null}
                               <div className="text-[10px] text-slate-400 mt-0.5">
                                 المندوب: {inv.salesRepName}
                               </div>

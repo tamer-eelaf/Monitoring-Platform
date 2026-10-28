@@ -204,22 +204,30 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {/* Prominent Client Contact Person & Phone */}
                     {clientInfo && (
                       <div className="flex flex-wrap items-center gap-2 text-xs pt-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                          <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                          <span className="text-slate-400 text-[11px]">مسؤول الاتصال:</span>
-                          <span className="font-semibold text-slate-200">{clientInfo.contactPerson}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-emerald-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800 font-mono text-[11px]">
-                          <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <a
-                            href={`tel:${clientInfo.phone.replace(/\s+/g, '')}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="font-bold hover:underline dir-ltr text-emerald-300"
-                            title="اتصال هاتفي مباشر"
-                          >
-                            {clientInfo.phone}
-                          </a>
-                        </div>
+                        {clientInfo.contactPerson && (
+                          <div className="flex items-center gap-1.5 text-slate-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                            <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span className="text-slate-400 text-[11px]">مسؤول الاتصال:</span>
+                            <span className="font-semibold text-slate-200">{clientInfo.contactPerson}</span>
+                          </div>
+                        )}
+                        {clientInfo.phone ? (
+                          <div className="flex items-center gap-1.5 text-emerald-300 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800 font-mono text-[11px]">
+                            <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <a
+                              href={`tel:${clientInfo.phone.replace(/\s+/g, '')}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-bold hover:underline dir-ltr text-emerald-300"
+                              title="اتصال هاتفي مباشر"
+                            >
+                              {clientInfo.phone}
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 font-sans px-2 py-0.5 rounded bg-slate-950 border border-slate-800">
+                            الهاتف: غير مسجل في Odoo
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -250,9 +258,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
 
                 {/* Expanded Details */}
-                {isExpanded && ord.lines.length > 0 && (
-                  <div className="border-t border-slate-800 p-4 bg-slate-950/70 space-y-3 text-xs">
-                    <h4 className="font-semibold text-slate-300">بنود الأمر المسجلة ({ord.lines.length} صنف):</h4>
+                {isExpanded && (
+                  ord.lines && ord.lines.length > 0 ? (
+                    <div className="border-t border-slate-800 p-4 bg-slate-950/70 space-y-3 text-xs">
+                      <h4 className="font-semibold text-slate-300">بنود الأمر المسجلة ({ord.lines.length} صنف):</h4>
                     <div className="border border-slate-800 rounded-lg overflow-hidden">
                       <table className="w-full text-right text-xs">
                         <thead>
@@ -290,6 +299,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </table>
                     </div>
                   </div>
+                ) : (
+                    <div className="border-t border-slate-800 p-4 bg-slate-950/70 text-xs text-slate-400 leading-relaxed">
+                      تفاصيل أسطر الأصناف والتوكيلات (sale.order.line) غير متوفرة في تصدير الأوامر الحالي من Odoo.
+                    </div>
+                  )
                 )}
               </div>
             );

@@ -40,6 +40,7 @@ import {
 import { SalesOrder, StockItem, Brand, CustomerInvoice, SupplierBill, EgyptClient } from '../../types';
 import { saveCeoSnapshotToSupabase } from '../../services/supabaseClient';
 import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface CeoPresentationViewProps {
   salesOrders: SalesOrder[];
@@ -917,14 +918,14 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
         {[
           { id: 'bum_weekly', label: '1. شيت تقرير BUM الأسبوعي (Detailed Q4 Dossier)', icon: FileSpreadsheet },
           { id: 'quarterly_matrix', label: '2. مصفوفة الأداء الربع سنوي (Quarterly Matrix & YoY)', icon: BarChart3 },
-          { id: 'cash_flow', label: '3. صافي التدفق النقدي المتوقع (Net Cash Flow Projection)', icon: Wallet },
+          { id: 'cash_flow', label: hasCashData ? '3. صافي التدفق النقدي المتوقع (Net Cash Flow Projection)' : '3. صافي التدفق النقدي (غير متاح)', icon: Wallet },
           { id: 'upcoming_cash', label: `4. تحصيلات مجدولة قادمة (${usdShort(totalUpcomingUSD)})`, icon: CreditCard },
           { id: 'deals', label: '5. كبرى المشاريع والفرص (Strategic Deals)', icon: Award },
           { id: 'overview', label: '6. توزيع التوكيلات (Brand Portfolio)', icon: Layers },
           { id: 'inventory', label: '7. كشف المخزون الحي (Inventory Assets)', icon: Package },
           { id: 'team', label: '8. أداء فريق المبيعات (Sales Reps)', icon: TrendingUp },
           { id: 'recommendations', label: '9. مذكرات وتوجيهات للـ CEO (Action Memo)', icon: ShieldCheck },
-        ].filter((t) => hasCashData || t.id !== 'cash_flow').map((t) => {
+        ].map((t) => {
           const Icon = t.icon;
           return (
             <button
@@ -1019,7 +1020,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                         </td>
                         <td className="py-2.5 px-3.5 text-slate-200 font-semibold whitespace-nowrap">
                           <div className="font-bold text-slate-100">{ord.customerName}</div>
-                          {ordClient && (
+                          {ordClient?.phone && (
                             <div className="text-[10px] text-emerald-400 font-mono mt-0.5 flex items-center gap-1 dir-ltr text-right">
                               <span>{ordClient.phone}</span>
                             </div>
@@ -1322,8 +1323,19 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
       )}
 
       {/* ====================================================================== */}
-      {/* 7. TAB 3: EXPECTED NET CASH FLOW PROJECTION (NEW FEATURE!) */}
+      {/* 7. TAB 3: EXPECTED NET CASH FLOW PROJECTION */}
       {/* ====================================================================== */}
+      {activeTab === 'cash_flow' && !hasCashData && (
+        <DataGapNotice
+          title="صافي التدفق النقدي المتوقع (Net Cash Flow Projection)"
+          why="توقعات صافي التدفق النقدي تتطلب بيانات الفواتير والتحصيلات ومستحقات الموردين وتواريخ استحقاقها من Odoo، وهي غير متوفرة في التصديرات الحالية."
+          needs={[
+            'تصدير فواتير العملاء (account.move): رقم الفاتورة، العميل، تاريخ الفاتورة والاستحقاق والمبلغ المتبقي',
+            'تصدير فواتير الموردين (Vendor Bills): المورد، الرقم، تاريخ الاستحقاق والمبلغ',
+            'ربط الفواتير بأوامر البيع والشراء المقابلة'
+          ]}
+        />
+      )}
       {activeTab === 'cash_flow' && hasCashData && (
         <div className="space-y-6 animate-fade-in">
           {/* Header & Scenario Simulator Controls */}
@@ -1964,16 +1976,20 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                         <span className="text-slate-500">المسؤول:</span>
                         <span>{inspectClient.contactPerson}</span>
                       </div>
-                      <div className="flex items-center gap-2 font-mono text-emerald-400 font-bold">
-                        <Phone className="w-3 h-3 text-emerald-400" />
-                        <a
-                          href={`tel:${inspectClient.phone.replace(/\s+/g, '')}`}
-                          className="hover:underline dir-ltr"
-                          title="اتصال مباشر"
-                        >
-                          {inspectClient.phone}
-                        </a>
-                      </div>
+                      {inspectClient.phone ? (
+                        <div className="flex items-center gap-2 font-mono text-emerald-400 font-bold">
+                          <Phone className="w-3 h-3 text-emerald-400" />
+                          <a
+                            href={`tel:${inspectClient.phone.replace(/\s+/g, '')}`}
+                            className="hover:underline dir-ltr"
+                            title="اتصال مباشر"
+                          >
+                            {inspectClient.phone}
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-500 font-sans">الهاتف: غير مسجل في Odoo</div>
+                      )}
                     </div>
                   );
                 })()}

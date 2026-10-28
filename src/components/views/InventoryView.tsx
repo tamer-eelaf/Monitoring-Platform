@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { StockItem, StockMove } from '../../types';
 import { Pagination } from '../common/Pagination';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface InventoryViewProps {
   stockItems: StockItem[];
@@ -320,6 +321,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             onPageChange={setItemsPage}
           />
         </div>
+      ) : stockMoves.length === 0 ? (
+        <DataGapNotice
+          title="سجل حركات المخزون (Stock Moves Ledger)"
+          why="حركات المخزون غير متوفرة في تصدير الأرصدة الحالي، ويتطلب حساب أعمار الأصناف بدقة FIFO تصدير حركات المخازن من Odoo."
+          needs={[
+            'تصدير حركات المخزون (stock.move): تاريخ الحركة، نوع الحركة (وارد/منصرف)',
+            'الصنف والكمية المنقولة',
+            'موقع المصدر وموقع الوجهة والمستند المرتبط (WH/IN, WH/OUT)'
+          ]}
+        />
       ) : (
         /* Tab Content: Stock Moves Ledger */
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">

@@ -4,5 +4,9 @@ dist/
 coverage/
 .DS_Store
 *.log
+*.env
 .env*
 !.env.example
+data/private/
+.aistudio/
+public/assets/aistudio/

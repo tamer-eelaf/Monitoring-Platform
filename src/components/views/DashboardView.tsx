@@ -113,12 +113,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
             <span className="text-slate-500 font-sans ml-1.5">تحصيلات مفتوحة:</span>
-            <span className="font-bold text-amber-400">${totalOutstandingUSD.toLocaleString()}</span>
+            {invoices.length > 0 ? (
+              <span className="font-bold text-amber-400">${totalOutstandingUSD.toLocaleString()}</span>
+            ) : (
+              <span className="font-sans text-amber-400">غير متاح</span>
+            )}
           </div>
         </div>
       </div>
-
-
 
       {/* 2. Three Primary Executive Pillars (Spacious & High-Value) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -133,12 +135,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div>
-            <div className="text-2xl font-bold font-mono text-red-400 tracking-tight">
-              ${totalOverdueUSD.toLocaleString()}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-mono">
-              {overdueInvoices.length} فواتير تجاوزت تاريخ استحقاقها
-            </div>
+            {invoices.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold font-mono text-red-400 tracking-tight">
+                  ${totalOverdueUSD.toLocaleString()}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 font-mono">
+                  {overdueInvoices.length} فواتير تجاوزت تاريخ استحقاقها
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-xl font-bold text-amber-400 tracking-tight font-sans">
+                  غير متاح
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 font-sans">
+                  يتطلب تصدير الفواتير من Odoo
+                </div>
+              </>
+            )}
           </div>
 
           {topOverdueInvoice && (
@@ -187,17 +202,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div>
-            <div className="text-2xl font-bold font-mono text-amber-400 tracking-tight">
-              ${totalSupplierDueUSD.toLocaleString()}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-mono">
-              {supplierBills.length} فواتير توريد غير مسددة بالكامل
-            </div>
+            {supplierBills.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold font-mono text-amber-400 tracking-tight">
+                  ${totalSupplierDueUSD.toLocaleString()}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 font-mono">
+                  {supplierBills.length} فواتير توريد غير مسددة بالكامل
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-xl font-bold text-amber-400 tracking-tight font-sans">
+                  غير متاح
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 font-sans">
+                  يتطلب تصدير فواتير الموردين من Odoo
+                </div>
+              </>
+            )}
           </div>
 
           <div className="pt-2.5 border-t border-slate-800/80 text-xs flex items-center justify-between text-slate-400">
             <span>أقرب استحقاق:</span>
-            <span className="text-slate-200 font-mono">خلال الأسبوع الجاري</span>
+            <span className="text-slate-200 font-mono">
+              {supplierBills.length > 0 ? 'خلال الأسبوع الجاري' : 'غير متوفر'}
+            </span>
           </div>
         </div>
       </div>
@@ -260,54 +290,68 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Brand Distribution Strip (Clean & Uncluttered) */}
+      {/* 4. Brand Distribution Strip */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-slate-200 flex items-center gap-1.5">
             <TrendingUp className="w-4 h-4 text-blue-400" />
             توزيع مبيعات التوكيلات الثلاثة في مصر
           </span>
-          <span className="font-mono text-slate-400">
-            إجمالي: ${grandBrandTotal.toLocaleString()}
-          </span>
+          {hikTotal + velaTotal + amgTotal > 0 ? (
+            <span className="font-mono text-slate-400">
+              إجمالي: ${grandBrandTotal.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-amber-400 font-sans text-xs">
+              غير متاح — يتطلب تصدير أسطر الأوامر (sale.order.line)
+            </span>
+          )}
         </div>
 
-        {/* Visual Progress Bar */}
-        <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex">
-          <div
-            style={{ width: `${(hikTotal / grandBrandTotal) * 100}%` }}
-            className="bg-red-500 h-full transition-all"
-            title="Hikvision"
-          />
-          <div
-            style={{ width: `${(amgTotal / grandBrandTotal) * 100}%` }}
-            className="bg-cyan-500 h-full transition-all"
-            title="AMG Systems"
-          />
-          <div
-            style={{ width: `${(velaTotal / grandBrandTotal) * 100}%` }}
-            className="bg-amber-500 h-full transition-all"
-            title="Velasea"
-          />
-        </div>
+        {hikTotal + velaTotal + amgTotal > 0 ? (
+          <>
+            {/* Visual Progress Bar */}
+            <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex">
+              <div
+                style={{ width: `${(hikTotal / grandBrandTotal) * 100}%` }}
+                className="bg-red-500 h-full transition-all"
+                title="Hikvision"
+              />
+              <div
+                style={{ width: `${(amgTotal / grandBrandTotal) * 100}%` }}
+                className="bg-cyan-500 h-full transition-all"
+                title="AMG Systems"
+              />
+              <div
+                style={{ width: `${(velaTotal / grandBrandTotal) * 100}%` }}
+                className="bg-amber-500 h-full transition-all"
+                title="Velasea"
+              />
+            </div>
 
-        <div className="grid grid-cols-3 gap-3 pt-1 text-xs font-mono">
-          <div className="text-right">
-            <span className="text-red-400 font-sans font-semibold">Hikvision</span>
-            <div className="text-sm font-bold text-slate-200 mt-0.5">${hikTotal.toLocaleString()}</div>
-            <div className="text-[10px] text-slate-500">{((hikTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
+            <div className="grid grid-cols-3 gap-3 pt-1 text-xs font-mono">
+              <div className="text-right">
+                <span className="text-red-400 font-sans font-semibold">Hikvision</span>
+                <div className="text-sm font-bold text-slate-200 mt-0.5">${hikTotal.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-500">{((hikTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
+              </div>
+              <div className="text-center">
+                <span className="text-cyan-400 font-sans font-semibold">AMG Systems</span>
+                <div className="text-sm font-bold text-slate-200 mt-0.5">${amgTotal.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-500">{((amgTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
+              </div>
+              <div className="text-left">
+                <span className="text-amber-400 font-sans font-semibold">Velasea</span>
+                <div className="text-sm font-bold text-slate-200 mt-0.5">${velaTotal.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-500">{((velaTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-400 leading-relaxed border border-slate-800">
+            لا يتضمن تصدير أوامر البيع الحالي تفاصيل أسطر الأصناف والتوكيلات (Brand Lines)، لذا لا يمكن استنتاج نسبة كل توكيل بدقة دون تصدير ملف <code className="text-amber-300 font-mono">sale.order.line</code> من Odoo.
           </div>
-          <div className="text-center">
-            <span className="text-cyan-400 font-sans font-semibold">AMG Systems</span>
-            <div className="text-sm font-bold text-slate-200 mt-0.5">${amgTotal.toLocaleString()}</div>
-            <div className="text-[10px] text-slate-500">{((amgTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
-          </div>
-          <div className="text-left">
-            <span className="text-amber-400 font-sans font-semibold">Velasea</span>
-            <div className="text-sm font-bold text-slate-200 mt-0.5">${velaTotal.toLocaleString()}</div>
-            <div className="text-[10px] text-slate-500">{((velaTotal / grandBrandTotal) * 100).toFixed(1)}%</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

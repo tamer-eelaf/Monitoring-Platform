@@ -15,6 +15,7 @@ import {
 import { SystemAlert } from '../../types';
 import { AlertThresholds, StorageService } from '../../services/storageService';
 import { Pagination } from '../common/Pagination';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface AlertsViewProps {
   alerts: SystemAlert[];
@@ -192,14 +193,30 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
             </button>
           </div>
         </form>
+
+        <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-900/40 text-[11px] text-amber-300/80 leading-relaxed">
+          تنبيه: تنبيهات ركود المخزون ومستحقات الموردين معلّقة حالياً لعدم توفر تصديرات حركات المخازن وفواتير الموردين من Odoo. تنبيهات التسليم غير المفوتر نشطة وتعتمد على أوامر البيع المسجلة.
+        </div>
       </div>
 
       {/* Active Alerts List */}
       <div className="space-y-3">
         {paginatedAlerts.length === 0 ? (
-          <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl text-slate-500 text-xs">
-            لا توجد تنبيهات مطابقة لهذا التصنيف.
-          </div>
+          alerts.length === 0 ? (
+            <DataGapNotice
+              title="تنبيهات النظام ومؤشرات التدخل السريع"
+              why="تتطلب غالبية التنبيهات (الفواتير المتأخرة، وعود السداد، مستحقات الموردين، ركود المخزون) تصديرات الفواتير وحركات المخازن من Odoo."
+              needs={[
+                'تصدير فواتير العملاء مع مبالغ الاستحقاق',
+                'تصدير فواتير الموردين',
+                'تصدير حركات المخزون لحساب الركود'
+              ]}
+            />
+          ) : (
+            <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl text-slate-500 text-xs">
+              لا توجد تنبيهات مطابقة لهذا التصنيف.
+            </div>
+          )
         ) : (
           paginatedAlerts.map((alert) => (
             <div

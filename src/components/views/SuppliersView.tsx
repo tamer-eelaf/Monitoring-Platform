@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { SupplierBill } from '../../types';
 import { Pagination } from '../common/Pagination';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface SuppliersViewProps {
   supplierBills: SupplierBill[];
@@ -26,6 +27,19 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
   supplierBills,
   onUpdatePaymentSchedule,
 }) => {
+  if (supplierBills.length === 0) {
+    return (
+      <DataGapNotice
+        title="مدفوعات الموردين وتواريخ الاستحقاق (Supplier Payables)"
+        why="لا توجد فواتير موردين في التصديرات الحالية، والأرقام التي ظهرت سابقاً لم يكن لها مصدر."
+        needs={[
+          'تصدير فواتير الموردين (Vendor Bills): المورد، الرقم، التاريخ والاستحقاق',
+          'المبلغ والمتبقي والعملة',
+          'أوامر الشراء المرتبطة'
+        ]}
+      />
+    );
+  }
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [search, setSearch] = useState<string>('');

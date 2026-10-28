@@ -11,12 +11,26 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { BUStaffPerformance } from '../../types';
+import { DataGapNotice } from '../common/DataNotice';
 
 interface TeamViewProps {
   staffPerformance?: BUStaffPerformance[];
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => {
+  if (staffPerformance.length === 0) {
+    return (
+      <DataGapNotice
+        title="أداء فريق مبيعات Physical Security BU"
+        why="بيانات أداء المناديب وقائمة أعضاء الوحدة غير متوفرة في التصدير الحالي."
+        needs={[
+          'تصدير أوامر البيع متضمنة اسم المندوب (salesperson)',
+          'تأكيد قائمة أعضاء الوحدة الرسمية مع الإدارة'
+        ]}
+      />
+    );
+  }
+
   const buMembers = staffPerformance.filter((s) => s.isBU);
   const outsideBUMembers = staffPerformance.filter((s) => !s.isBU);
 
@@ -131,7 +145,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
                 <div>
                   <div className="text-[10px] text-slate-500 font-sans">عروض مفتوحة</div>
                   <div className="text-xs font-bold text-amber-400 mt-0.5">
-                    {member.openQuotesCount ?? '—'} · ${Math.round(member.openQuotesUSD ?? 0).toLocaleString()}
+                    {member.openQuotesCount ? `${member.openQuotesCount} · $${Math.round(member.openQuotesUSD ?? 0).toLocaleString()}` : 'لا توجد'}
                   </div>
                 </div>
                 <div>

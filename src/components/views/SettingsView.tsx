@@ -303,7 +303,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">أوامر البيع</div>
                 <div className="text-base font-bold font-mono text-blue-400">
-                  {orders.length || 613}
+                  {orders.length}
                 </div>
                 <div className="text-[9px] text-slate-500">أمر Odoo معتمد</div>
               </div>
@@ -311,23 +311,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">أصناف المخزون</div>
                 <div className="text-base font-bold font-mono text-emerald-400">
-                  {stockItems.length || 390}
+                  {stockItems.length}
                 </div>
-                <div className="text-[9px] text-slate-500">صنف من 4 توكيلات</div>
+                <div className="text-[9px] text-slate-500">صنف في الكتالوج</div>
               </div>
 
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">فواتير العملاء</div>
                 <div className="text-base font-bold font-mono text-amber-400">
-                  {invoices.length || 123}
+                  {invoices.length > 0 ? invoices.length : 'غير متاح'}
                 </div>
-                <div className="text-[9px] text-slate-500">مستخرجة حقيقية</div>
+                <div className="text-[9px] text-slate-500">
+                  {invoices.length > 0 ? 'فاتورة مسجلة' : 'غير متوفرة بالتصدير'}
+                </div>
               </div>
 
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">الشركات والعملاء</div>
                 <div className="text-base font-bold font-mono text-cyan-400">
-                  {clients.length || 216}
+                  {clients.length}
                 </div>
                 <div className="text-[9px] text-slate-500">شركة بمصر</div>
               </div>
@@ -335,7 +337,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">فريق المبيعات</div>
                 <div className="text-base font-bold font-mono text-purple-400">
-                  {staffPerformance.length || 30}
+                  {staffPerformance.length}
                 </div>
                 <div className="text-[9px] text-slate-500">مندوب مسجل</div>
               </div>
@@ -343,9 +345,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-center">
                 <div className="text-[10px] text-slate-500">التزامات الموردين</div>
                 <div className="text-base font-bold font-mono text-rose-400">
-                  {supplierBills.length || 4}
+                  {supplierBills.length > 0 ? supplierBills.length : 'غير متاح'}
                 </div>
-                <div className="text-[9px] text-slate-500">حسب التوكيلات</div>
+                <div className="text-[9px] text-slate-500">
+                  {supplierBills.length > 0 ? 'فاتورة مورد' : 'غير متوفرة بالتصدير'}
+                </div>
               </div>
             </div>
           </div>
@@ -460,7 +464,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
 
                 <a
-                  href="https://supabase.com/dashboard/project/cxuzyvlrpywkiidpmjqo/editor"
+                  href="https://supabase.com/dashboard"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
@@ -555,8 +559,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 قناة الاتصال اللحظي بخادم شركة إيلاف عبر بروتوكول JSON-RPC المباشر
               </p>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950/70 border border-emerald-800 text-emerald-400">
-              مفعل ومربوط
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+              يُحدَّد من متغيرات البيئة على الخادم
             </span>
           </div>
 
@@ -573,7 +577,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="space-y-1 bg-slate-950 p-3 rounded-lg border border-slate-800">
               <span className="text-slate-500 block text-[11px]">حساب المدير المعتمد:</span>
-              <span className="text-slate-200 font-semibold">tamer.elshafey@eelaf.com</span>
+              <span className="text-slate-200 font-semibold">يُحدَّد في متغير البيئة user_name على الخادم</span>
             </div>
 
             <div className="space-y-1 bg-slate-950 p-3 rounded-lg border border-slate-800">
