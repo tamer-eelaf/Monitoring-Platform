@@ -1,21 +1,30 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Supabase project credentials (injected from env or fallback to user credentials)
-export const SUPABASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
-  'https://cxuzyvlrpywkiidpmjqo.supabase.co';
+// Supabase configuration comes ONLY from environment variables (never commit keys or project URLs).
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local / the hosting provider.
+const viteEnv: Record<string, string | undefined> =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
+export const SUPABASE_URL: string = viteEnv.VITE_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY: string = viteEnv.VITE_SUPABASE_ANON_KEY || '';
+export const SUPABASE_CONFIGURED: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
-export const SUPABASE_ANON_KEY =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
-  'sb_publishable_hetzimB9wb9onUHV3RXZ8A_SbrHdQiM';
-
-// Single Supabase client instance
-export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+// Single Supabase client instance. When not configured, every request fails fast without touching the network.
+export const supabase: SupabaseClient = createClient(
+  SUPABASE_URL || 'http://supabase.invalid',
+  SUPABASE_ANON_KEY || 'not-configured',
+  {
+    auth: { persistSession: true, autoRefreshToken: true },
+    ...(SUPABASE_CONFIGURED
+      ? {}
+      : {
+          global: {
+            fetch: async () => {
+              throw new Error('Supabase غير مُهيأ: عيّن VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY');
+            },
+          },
+        }),
+  }
+);
 
 export interface SupabaseHealth {
   connected: boolean;
@@ -363,19 +372,27 @@ CREATE TABLE IF NOT EXISTS public.ceo_snapshots (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::TEXT, NOW())
 );
 
--- تفعيل سياسات الأمان Row Level Security (RLS) والسماح بالوصول عبر مفتاح Anon
+-- Row Level Security: ONLY signed-in users (Supabase Auth). Never grant access to the anon role.
 ALTER TABLE public.invoice_promises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.supplier_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ceo_snapshots ENABLE ROW LEVEL SECURITY;
 
+-- remove the old open policies if they exist
 DROP POLICY IF EXISTS "Public Anon Access Promises" ON public.invoice_promises;
-CREATE POLICY "Public Anon Access Promises" ON public.invoice_promises FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Public Anon Access Schedules" ON public.supplier_schedules;
-CREATE POLICY "Public Anon Access Schedules" ON public.supplier_schedules FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Public Anon Access Snapshots" ON public.ceo_snapshots;
-CREATE POLICY "Public Anon Access Snapshots" ON public.ceo_snapshots FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated Promises" ON public.invoice_promises;
+CREATE POLICY "Authenticated Promises" ON public.invoice_promises
+  FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated Schedules" ON public.supplier_schedules;
+CREATE POLICY "Authenticated Schedules" ON public.supplier_schedules
+  FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated Snapshots" ON public.ceo_snapshots;
+CREATE POLICY "Authenticated Snapshots" ON public.ceo_snapshots
+  FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 `;
 
 /**
@@ -403,15 +420,11 @@ export async function syncEntireDatasetToSupabase(options?: {
       {
         id: `snapshot_${today}`,
         summary_date: today,
-        total_pipeline: options?.totalPipeline ?? 37827889,
-        confirmed_sales: options?.confirmedSales ?? 3875372,
-        inventory_value: options?.inventoryValue ?? 410762,
-        uninvoiced_deliveries: options?.uninvoicedDeliveries ?? 1318840,
-        action_items: [
-          'تسريع فوترة تسليمات معلقة بقيمة $1.32M (أولوية قصوى لتحرير سيولة)',
-          'تسييل مخزون راكد وبطيء الحركة بقيمة $94.6K (EGP 4.73M)',
-          'متابعة تحصيل فواتير مشروعات كبرى تجاوزت 60 يوماً ($75.7K)',
-        ],
+        total_pipeline: options?.totalPipeline ?? null,
+        confirmed_sales: options?.confirmedSales ?? null,
+        inventory_value: options?.inventoryValue ?? null,
+        uninvoiced_deliveries: options?.uninvoicedDeliveries ?? null,
+        action_items: [],
         created_at: new Date().toISOString(),
       },
     ]);
@@ -451,7 +464,8 @@ export async function syncEntireDatasetToSupabase(options?: {
 }
 
 /**
- * Seed initial executive records into Supabase once tables are created
+ * Verifies that the Supabase tables exist and syncs ONLY real records that are passed in.
+ * (Previously this function inserted invented promises, supplier schedules and CEO figures.)
  */
 export async function seedSupabaseDatabase(data?: {
   invoices?: any[];
@@ -462,129 +476,36 @@ export async function seedSupabaseDatabase(data?: {
   count: number;
 }> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-
-    // 1. CEO Executive Snapshot
-    const snapshotRes = await supabase.from('ceo_snapshots').upsert([
-      {
-        id: `snapshot_${today}`,
-        summary_date: today,
-        total_pipeline: 37827889,
-        confirmed_sales: 3875372,
-        inventory_value: 410762,
-        uninvoiced_deliveries: 1318840,
-        action_items: [
-          'تسريع فوترة تسليمات معلقة بقيمة $1.32M (أولوية قصوى)',
-          'تسييل مخزون راكد وبطيء الحركة بقيمة $94.6K (EGP 4.73M)',
-          'متابعة تحصيل فواتير مشروعات كبرى تجاوزت 60 يوماً',
-        ],
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
-    // 2. Invoices (use passed or initial)
-    let promisesRes: any = { error: null };
-    if (data?.invoices && data.invoices.length > 0) {
-      promisesRes = await syncAllInvoicesToSupabase(data.invoices);
-    } else {
-      promisesRes = await supabase.from('invoice_promises').upsert([
-        {
-          id: 'promise_inv_001',
-          invoice_id: 'INV/2026/0001',
-          promise_date: '2026-10-28',
-          promise_status: 'scheduled',
-          notes: 'متابعة سداد فاتورة توريدات أجهزة كاميرات المراقبة - ACT',
-          assigned_rep: 'Amr Mesallam',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'promise_inv_002',
-          invoice_id: 'INV/2026/0002',
-          promise_date: '2026-10-30',
-          promise_status: 'in_followup',
-          notes: 'متابعة اعتماد مستخلص مشروع شبكات كاميرات المراقبة - IS IMAGING SOLUTIONS',
-          assigned_rep: 'Tamer Elshafey',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'promise_inv_003',
-          invoice_id: 'INV/2026/0003',
-          promise_date: '2026-10-29',
-          promise_status: 'scheduled',
-          notes: 'تأكيد موعد استلام شيك توريد وحدات التخزين - Alkan Telecom',
-          assigned_rep: 'Rehaf Elterkawi',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'promise_inv_004',
-          invoice_id: 'INV/2026/0004',
-          promise_date: '2026-11-02',
-          promise_status: 'scheduled',
-          notes: 'متابعة صرف دفعة محولات وسويتشات AMG - ICONS Computer Services',
-          assigned_rep: 'Amr Mesallam',
-          updated_at: new Date().toISOString(),
-        },
-      ]);
-    }
-
-    // 3. Supplier Schedules (use passed or initial)
-    let schedulesRes: any = { error: null };
-    if (data?.bills && data.bills.length > 0) {
-      schedulesRes = await syncAllSupplierBillsToSupabase(data.bills);
-    } else {
-      schedulesRes = await supabase.from('supplier_schedules').upsert([
-        {
-          id: 'bill_bill_001',
-          bill_id: 'BILL/2026/0078',
-          planned_date: '2026-10-29',
-          notes: 'جدولة مستحقات Hikvision بعد تحصيل مستخلص العاصمة الإدارية ($84,500)',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'bill_bill_002',
-          bill_id: 'BILL/2026/0064',
-          planned_date: '2026-10-26',
-          notes: 'مستحقات Velasea أنظمة سيرفرات الذكاء الاصطناعي ($47,200) - قيد اعتماد سويفت البنك',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'bill_bill_003',
-          bill_id: 'BILL/2026/0085',
-          planned_date: '2026-11-12',
-          notes: 'مستحقات AMG Systems UK محولات شبكات صناعية ($16,500)',
-          updated_at: new Date().toISOString(),
-        },
-      ]);
-    }
-
-    const errors = [snapshotRes.error, promisesRes.error, schedulesRes.error].filter(Boolean);
-
-    if (errors.length > 0) {
-      const err = errors[0];
+    const probe = await supabase.from('invoice_promises').select('id').limit(1);
+    if (probe.error) {
+      const err = probe.error;
       if (err?.code === '42P01' || err?.message?.includes('does not exist')) {
         return {
           success: false,
-          message: 'الجداول غير موجودة بعد في سوبابيز. يرجى تشغيل كود SQL أولاً من قائمة SQL Editor في سوبابيز.',
+          message: 'الجداول غير موجودة بعد في سوبابيز. شغّل كود SQL أولاً من SQL Editor.',
           count: 0,
         };
       }
-      return {
-        success: false,
-        message: `استجابة سوبابيز: ${err?.message}`,
-        count: 0,
-      };
+      return { success: false, message: `استجابة سوبابيز: ${err?.message}`, count: 0 };
     }
 
+    let count = 0;
+    if (data?.invoices && data.invoices.length > 0) {
+      const r = await syncAllInvoicesToSupabase(data.invoices);
+      count += r.count;
+    }
+    if (data?.bills && data.bills.length > 0) {
+      const r = await syncAllSupplierBillsToSupabase(data.bills);
+      count += r.count;
+    }
     return {
       success: true,
-      message: 'تم رفع وتعبئة كافة البيانات بنجاح في الجداول الثلاثة (CEO و Invoices و Suppliers)! يمكنك الآن الضغط على أي جدول في Table Editor لرؤية سجلاته.',
-      count: 8,
+      message: count
+        ? `تمت مزامنة ${count} سجلاً حقيقياً.`
+        : 'الجداول جاهزة. لم يُرفع أي سجل: لا توجد فواتير أو مستحقات حقيقية للمزامنة، ولا تُنشأ بيانات تجريبية.',
+      count,
     };
   } catch (err: any) {
-    return {
-      success: false,
-      message: err?.message || 'فشل رفع البيانات إلى سوبابيز',
-      count: 0,
-    };
+    return { success: false, message: err?.message || 'فشل الاتصال بسوبابيز', count: 0 };
   }
 }

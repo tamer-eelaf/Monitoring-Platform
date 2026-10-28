@@ -1,0 +1,19 @@
+{
+ "allTimeConfirmedCount": 146,
+ "allTimeConfirmedUSD": 3875369.08,
+ "allTimeRows": 613,
+ "ytdConfirmedCount": 74,
+ "ytdConfirmedUSD": 1438328.41,
+ "ytdConfirmedEGPexVAT": 63084579.44,
+ "ytdFullyInvoicedEGPexVAT": 21479276.58,
+ "ytdDeliveredNotInvoicedCount": 8,
+ "ytdDeliveredNotInvoicedUSD": 157404.54,
+ "ytdOpenQuotesCount": 297,
+ "ytdOpenQuotesUSD": 19879204.56,
+ "ytdOpenQuotesOver90Count": 197,
+ "ytdOpenQuotesOver90USD": 13464678.99,
+ "top2RepsShareConfirmed": 0.6683,
+ "productSkuCount": 191,
+ "inventoryValueEGP": 27835825.34,
+ "productsWithZeroCost": 56
+}

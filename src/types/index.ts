@@ -136,9 +136,12 @@ export interface StockItem {
   totalValueUSD: number;
   firstInDate: string;
   lastMovementDate: string;
-  agingDays: number; // Days since first stock in
-  daysWithoutMovement: number;
-  isStagnant: boolean; // > N days without movement
+  agingDays: number | null; // Days since first stock in — null = unknown (needs stock-moves export)
+  daysWithoutMovement: number | null;
+  isStagnant: boolean; // > N days without movement (false when unknown)
+  description?: string;
+  forecastedQty?: number;
+  costMissing?: boolean; // unit cost = 0 in Odoo
   minSafetyStock: number;
   isLowStock: boolean;
 }
@@ -174,7 +177,7 @@ export interface EgyptClient {
   outstandingBalanceUSD: number;
   lastOrderDate: string;
   daysSinceLastPurchase: number;
-  creditRating: 'A+' | 'A' | 'B' | 'C' | 'Risk';
+  creditRating: 'A+' | 'A' | 'B' | 'C' | 'Risk' | 'N/A';
   ordersCount?: number;
   projects?: string[];
   associatedContractors?: string[];
@@ -195,11 +198,13 @@ export interface BUStaffPerformance {
   outstandingARUSD: number;
   activeOrdersCount: number;
   overdueInvoicesCount: number;
+  openQuotesCount?: number;
+  openQuotesUSD?: number;
 }
 
 export interface SystemAlert {
   id: string;
-  type: 'broken_promise' | 'overdue_invoice' | 'supplier_due' | 'stagnant_stock' | 'undelivered_order' | 'uninvoiced_delivery';
+  type: 'broken_promise' | 'overdue_invoice' | 'supplier_due' | 'stagnant_stock' | 'undelivered_order' | 'uninvoiced_delivery' | 'stale_quotes' | 'cost_missing' | 'stock_concentration';
   severity: 'high' | 'medium' | 'info';
   title: string;
   message: string;

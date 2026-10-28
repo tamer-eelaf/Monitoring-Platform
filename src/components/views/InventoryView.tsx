@@ -69,6 +69,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     movesPage * PAGE_SIZE
   );
 
+  const agingKnown = stockItems.some((it) => it.agingDays !== null && it.agingDays !== undefined);
+  const costMissingCount = stockItems.filter((it) => it.costMissing).length;
   const totalStockValueUSD = stockItems.reduce(
     (acc, it) => acc + it.totalValueUSD,
     0
@@ -99,7 +101,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
           <div className="bg-slate-900 border border-red-950 rounded-lg px-3 py-1.5 text-slate-300">
             <span className="text-slate-500 font-sans ml-1">الراكد (&gt;90 يوم):</span>
-            <span className="font-bold text-red-400">${stagnantStockValueUSD.toLocaleString()}</span>
+            {agingKnown ? (
+              <span className="font-bold text-red-400">${stagnantStockValueUSD.toLocaleString()}</span>
+            ) : (
+              <span className="font-sans text-amber-400">غير متاح — يحتاج تصدير حركات المخزون</span>
+            )}
+          </div>
+          <div className="bg-slate-900 border border-amber-950 rounded-lg px-3 py-1.5 text-slate-300">
+            <span className="text-slate-500 font-sans ml-1">أصناف بلا تكلفة:</span>
+            <span className="font-bold text-amber-400">{costMissingCount}</span>
           </div>
         </div>
       </div>
@@ -247,7 +257,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </td>
 
                       <td className="py-2.5 px-4 font-sans text-slate-300">
-                        {item.location}
+                        {item.location || '—'}
                       </td>
 
                       <td className="py-2.5 px-4 text-center">
@@ -264,22 +274,28 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           ${item.totalValueUSD.toLocaleString()}
                         </div>
                         <div className="text-[10px] text-slate-500">
-                          سعر: ${item.unitCostUSD.toLocaleString()}
+                          {item.costMissing ? (
+                            <span className="text-amber-400 font-sans">التكلفة غير مسجلة في Odoo</span>
+                          ) : (
+                            <>سعر: ${item.unitCostUSD.toLocaleString()}</>
+                          )}
                         </div>
                       </td>
 
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-1 text-slate-300">
                           <Clock className="w-3.5 h-3.5 text-blue-400" />
-                          <span>{item.agingDays} يوماً</span>
+                          <span>{item.agingDays === null ? 'غير متاح' : `${item.agingDays} يوماً`}</span>
                         </div>
                         <div className="text-[10px] text-slate-500">
-                          {item.firstInDate}
+                          {item.firstInDate || '—'}
                         </div>
                       </td>
 
                       <td className="py-2.5 px-4 font-sans">
-                        {item.isStagnant ? (
+                        {item.daysWithoutMovement === null ? (
+                          <span className="text-[10px] text-slate-500">لا توجد بيانات حركة</span>
+                        ) : item.isStagnant ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-red-950 text-red-300 border border-red-800 flex items-center gap-1 w-fit">
                             <AlertTriangle className="w-3 h-3" />
                             راكد ({item.daysWithoutMovement} يوم)

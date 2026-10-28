@@ -36,6 +36,8 @@ import {
   BUStaffPerformance
 } from './types';
 import { CheckCircle2, RefreshCw, Loader2, Database, ShieldCheck } from 'lucide-react';
+import { DataModeBanner, DataGapNotice } from './components/common/DataNotice';
+import { DATA_REPORT_DATE } from './data/mockData';
 
 const LIVE_USER_PROFILE: UserProfile = {
   id: 'user_595',
@@ -64,6 +66,7 @@ export default function App() {
   // Loading & Live State
   const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(false);
   const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(false);
+  const [dataMode, setDataMode] = useState<'snapshot' | 'live'>('snapshot');
   const [syncTimestamp, setSyncTimestamp] = useState<string>(() => new Date().toLocaleTimeString('ar-EG'));
   const [liveInfo, setLiveInfo] = useState<{
     ordersCount: number;
@@ -135,6 +138,7 @@ export default function App() {
           setAlerts(liveData.alerts);
         }
 
+        setDataMode('live');
         setSyncTimestamp(new Date().toLocaleTimeString('ar-EG'));
         setLiveInfo({
           ordersCount: liveData.salesOrders.length,
@@ -209,15 +213,15 @@ export default function App() {
   // Tab metadata titles
   const tabMetadata: Record<string, { title: string; desc: string }> = {
     dashboard: {
-      title: 'لوحة القيادة اليومية التنفيذية (بيانات حية)',
-      desc: 'مؤشرات التحصيل والاستحقاق والأوامر والمخزون الحي لتوكيلات Hikvision / Velasea / AMG في مصر',
+      title: 'لوحة القيادة اليومية التنفيذية',
+      desc: 'مؤشرات الأوامر والعروض والمخزون لتوكيلات Hikvision / Velasea / AMG / Bosch (لقطة من تصديرات Odoo)',
     },
     ceo_presentation: {
       title: 'تقرير العرض التنفيذي للإدارة العليا (CEO Board Briefing)',
-      desc: 'تحليل شامل للإدارة: المبيعات المعتمدة، خط الأنابيب، الأصول المخزنية، وأولوية تحرير $1.32M رأس مال عامل',
+      desc: 'تحليل شامل للإدارة: المبيعات المعتمدة، خط الأنابيب، الأصول المخزنية، والمسلَّم غير المفوتر',
     },
     collections: {
-      title: 'التحصيلات وإدارة الديون (AR) — فواتير Odoo الحية',
+      title: 'التحصيلات وإدارة الديون (AR)',
       desc: 'متابعة الفواتير المفتوحة، أعمار الديون، وتواريخ وعود السداد المحفوظة بالمنصة',
     },
     suppliers: {
@@ -229,8 +233,8 @@ export default function App() {
       desc: 'تتبع أوامر البيع الحية المسجلة لإدارتك في شركة مصر',
     },
     inventory: {
-      title: 'أرصدة المخزون الحي وأعمار الأصناف',
-      desc: 'الأرصدة الفعلية في مستودعات مصر وسجل حركات الدخول والخروج',
+      title: 'أرصدة المخزون',
+      desc: 'أرصدة وقيم الأصناف من تصدير Odoo (الأعمار والحركة تحتاج تصدير حركات المخزون)',
     },
     clients: {
       title: 'قاعدة عملاء مصر المسجلين في Odoo',
@@ -241,7 +245,7 @@ export default function App() {
       desc: 'أعضاء الفريق المعتمدون في Odoo ومبيعات التوكيلات المشتركة',
     },
     alerts: {
-      title: 'التنبيهات والتدخل السريع على البيانات الحية',
+      title: 'التنبيهات والتدخل السريع',
       desc: 'رصد تلقائي لأعمار الديون والفواتير المتأخرة وعتبات التحذير',
     },
     settings: {
@@ -329,14 +333,12 @@ export default function App() {
               <div className="py-24 flex flex-col items-center justify-center space-y-4">
                 <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                 <div className="text-sm font-semibold text-slate-200">
-                  جارٍ جلب البيانات الحية من خادم Odoo (eelaf-master-21952014)...
-                </div>
-                <div className="text-xs text-slate-500 font-mono">
-                  Connecting to https://www.eelaf.com/jsonrpc as Tamer Elshafey
+                  جارٍ تحميل البيانات...
                 </div>
               </div>
             ) : (
               <>
+                <DataModeBanner mode={dataMode} date={DATA_REPORT_DATE} />
                 {currentTab === 'dashboard' && (
                   <DashboardView
                     invoices={invoices}
@@ -363,7 +365,14 @@ export default function App() {
                   />
                 )}
 
-                {currentTab === 'collections' && (
+                {currentTab === 'collections' && invoices.length === 0 && (
+                  <DataGapNotice
+                    title="التحصيلات وأعمار الديون غير متاحة"
+                    why="لا يوجد في تصديرات Odoo الحالية بيان بالفواتير أو المبالغ المتبقية أو المدفوعات. ما كان يظهر سابقاً كان مفترضاً (كل أمر مفوتر = فاتورة غير مسددة) وتم إيقافه حتى لا تُتابَع مديونيات غير حقيقية."
+                    needs={['تصدير الفواتير (account.move): رقم الفاتورة، العميل، تاريخ الفاتورة وتاريخ الاستحقاق', 'المبلغ الإجمالي والمتبقي (amount_residual) وحالة السداد', 'ربط الفاتورة برقم أمر البيع']}
+                  />
+                )}
+                {currentTab === 'collections' && invoices.length > 0 && (
                   <CollectionsView
                     invoices={invoices}
                     clients={clients}
@@ -373,7 +382,14 @@ export default function App() {
                   />
                 )}
 
-                {currentTab === 'suppliers' && (
+                {currentTab === 'suppliers' && supplierBills.length === 0 && (
+                  <DataGapNotice
+                    title="مدفوعات الموردين غير متاحة"
+                    why="لا توجد فواتير موردين في التصديرات الحالية، والأرقام التي ظهرت سابقاً لم يكن لها مصدر."
+                    needs={['تصدير فواتير الموردين (vendor bills): المورد، الرقم، التاريخ والاستحقاق', 'المبلغ والمتبقي والعملة', 'أوامر الشراء المرتبطة']}
+                  />
+                )}
+                {currentTab === 'suppliers' && supplierBills.length > 0 && (
                   <SuppliersView
                     supplierBills={supplierBills}
                     onUpdatePaymentSchedule={handleUpdateSupplierSchedule}
