@@ -444,7 +444,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 font-mono mt-0.5 break-all">
-                    {SUPABASE_URL}
+                    {SUPABASE_URL ? SUPABASE_URL : 'غير مُهيأ — عيّن VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY'}
                   </p>
                 </div>
               </div>
@@ -549,7 +549,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <Server className="w-4 h-4 text-purple-400" />
-                <span>إعدادات خادم Odoo (eelaf-master-21952014)</span>
+                <span>إعدادات خادم Odoo (من متغيرات البيئة على الخادم)</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 قناة الاتصال اللحظي بخادم شركة إيلاف عبر بروتوكول JSON-RPC المباشر
@@ -563,12 +563,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
             <div className="space-y-1 bg-slate-950 p-3 rounded-lg border border-slate-800">
               <span className="text-slate-500 block text-[11px]">رابط الـ API:</span>
-              <span className="text-slate-200 font-semibold break-all">https://www.eelaf.com/jsonrpc</span>
+              <span className="text-slate-200 font-semibold break-all">يُحدَّد في متغير البيئة URL على الخادم</span>
             </div>
 
             <div className="space-y-1 bg-slate-950 p-3 rounded-lg border border-slate-800">
               <span className="text-slate-500 block text-[11px]">اسم قاعدة البيانات (Database):</span>
-              <span className="text-slate-200 font-semibold">eelaf-master-21952014</span>
+              <span className="text-slate-200 font-semibold">يُحدَّد في متغير البيئة DB على الخادم</span>
             </div>
 
             <div className="space-y-1 bg-slate-950 p-3 rounded-lg border border-slate-800">

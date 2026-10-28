@@ -234,8 +234,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <div className="text-[11px] text-slate-500 flex items-center gap-2">
             <span>مرجع Odoo: account.move (out_invoice)</span>
-            <span>·</span>
-            <span>القاعدة: eelaf-master-21952014</span>
           </div>
           <div className="flex items-center gap-2">
             <button

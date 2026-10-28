@@ -43,7 +43,9 @@ export const INITIAL_USER_PROFILES: UserProfile[] = [
   },
 ];
 
-// All datasets are 100% genuine from the user's exported Odoo 19 files
+// Datasets come from scripts/build_dataset.mjs (Odoo exports). Anything the exports do not contain is EMPTY — see meta.provenance.
+export const DATA_META: any = (odooExtractedData as any).meta || {};
+export const DATA_REPORT_DATE: string = (odooExtractedData as any).extractedDate || '';
 export const INITIAL_SALES_ORDERS: SalesOrder[] = (odooExtractedData.salesOrders as any) || [];
 export const INITIAL_STOCK_ITEMS: StockItem[] = (odooExtractedData.products as any) || [];
 export const INITIAL_INVOICES: CustomerInvoice[] = (odooExtractedData.invoices as any) || [];
@@ -52,33 +54,27 @@ export const INITIAL_STAFF_PERFORMANCE: BUStaffPerformance[] = (odooExtractedDat
 export const INITIAL_SUPPLIER_BILLS: SupplierBill[] = (odooExtractedData.supplierBills as any) || [];
 export const INITIAL_ALERTS: SystemAlert[] = (odooExtractedData.alerts as any) || [];
 
-// Real movements derived from product operations
-export const INITIAL_STOCK_MOVES: StockMove[] = INITIAL_STOCK_ITEMS.slice(0, 20).map((p, idx) => ({
-  id: `move_${p.id}`,
-  reference: `WH/OUT/${1000 + idx}`,
-  date: p.lastMovementDate || '2026-10-24',
-  productId: p.productId,
-  productName: p.name,
-  brand: p.brand,
-  moveType: idx % 3 === 0 ? 'in' : 'out',
-  quantity: Math.max(1, Math.min(5, p.qtyOnHand)),
-  sourceLocation: idx % 3 === 0 ? 'المورد / الجمارك' : 'مخزن القاهرة الرئيسي',
-  destinationLocation: idx % 3 === 0 ? 'مخزن القاهرة الرئيسي' : 'العميل النهائي',
-  originDocument: `SO-2026-${200 + idx}`,
-}));
+// Stock movements are NOT in the exports (needs Odoo stock.move export). Never fabricate them.
+export const INITIAL_STOCK_MOVES: StockMove[] = [];
 
 export const INITIAL_PHASE0_REPORT: Phase0AuditReport = {
-  generatedAt: '2026-10-25',
-  connectionStatus: 'verified',
-  serverUrl: 'https://www.eelaf.com/jsonrpc',
-  database: 'eelaf-master-21952014',
+  generatedAt: DATA_REPORT_DATE,
+  connectionStatus: 'mock_mode', // static snapshot of Odoo CSV exports — not a live connection
+  serverUrl: '',
+  database: '',
   companyName: 'EELAF for Engineering and Information Technology S.A.E.',
   totalOrdersSampled: INITIAL_SALES_ORDERS.length,
   totalInvoicesSampled: INITIAL_INVOICES.length,
-  totalStockMovesSampled: INITIAL_STOCK_ITEMS.length,
-  brandClassificationRate: 100,
-  unclassifiedLinesCount: 0,
+  totalStockMovesSampled: 0,
+  brandClassificationRate: INITIAL_SALES_ORDERS.length
+    ? Math.round((INITIAL_SALES_ORDERS.filter((o) => o.brand).length / INITIAL_SALES_ORDERS.length) * 1000) / 10
+    : 0,
+  unclassifiedLinesCount: INITIAL_SALES_ORDERS.filter((o) => !o.brand).length,
   mixedInvoicesPercentage: 0,
-  detectedBrandField: 'product_template_id.brand_id',
-  recommendations: ['تم استخراج وتوحيد كافة بيانات Odoo الحقيقية بنجاح.'],
+  detectedBrandField: 'opportunity name keywords only (no order lines in export)',
+  recommendations: [
+    'البيانات لقطة من تصديرات Odoo بتاريخ ' + DATA_REPORT_DATE + ' وليست اتصالاً حياً.',
+    'غير متاح حالياً: الفواتير، فواتير الموردين، حركات المخزون، أسطر الأوامر (العلامة والتكلفة).',
+    'ربط الأوامر بالتوكيل يتم من اسم الفرصة فقط، فنسبة التصنيف أعلاه جزئية.',
+  ],
 };

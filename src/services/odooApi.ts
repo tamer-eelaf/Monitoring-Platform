@@ -174,29 +174,29 @@ export class OdooApiService {
         alerts,
       };
     } catch (e) {
-      console.error('Failed to fetch live data:', e);
+      console.warn('Live Odoo feed unavailable (static mode) — using bundled export:', (e as Error)?.message);
       return null;
     }
   }
 
   static async testConnection(config?: OdooConnectionConfig) {
+    const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
     try {
       const res = await fetch('/api/odoo/live-status');
       if (res.ok) {
         const data = await res.json();
+        const ok = !!data.authenticated;
         return {
-          success: data.authenticated,
-          message: data.authenticated
-            ? `تم التحقق بنجاح من الاتصال الحي بخادم Odoo وقاعدة ${data.db}.`
-            : data.message || 'فشل الاتصال',
-          serverVersion: data.serverVersion || 'Odoo Enterprise 19.0+e',
-          authenticatedUid: data.uid || 595,
-          companyName: data.company || 'EELAF for Engineering and Information Technology S.A.E.',
+          success: ok,
+          message: ok ? 'تم التحقق من الاتصال بخادم Odoo.' : data.message || 'فشل الاتصال',
+          serverVersion: data.serverVersion || '',
+          authenticatedUid: data.uid || 0,
+          companyName: data.company || '',
           diagnostics: {
-            xmlRpcJsonRpcEnabled: true,
-            readPermissionsVerified: true,
-            egyptCompanyFiltered: true,
-            latencyMs: 75,
+            xmlRpcJsonRpcEnabled: ok,
+            readPermissionsVerified: ok,
+            egyptCompanyFiltered: ok,
+            latencyMs: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0),
           },
         };
       }
@@ -204,111 +204,46 @@ export class OdooApiService {
       console.error('Test connection error:', e);
     }
 
+    // No server reachable (e.g. static hosting): report the truth instead of a fabricated success.
     return {
-      success: true,
-      message: 'تم التحقق من الاتصال الحي بخادم Odoo وقاعدة eelaf-master-21952014.',
-      serverVersion: 'Odoo Enterprise 19.0+e (Saas/Cloud)',
-      authenticatedUid: 595,
-      companyName: 'EELAF for Engineering and Information Technology S.A.E. (مصر)',
+      success: false,
+      message: 'تعذّر الاتصال بخادم Odoo. التطبيق يعمل على لقطة بيانات ثابتة من التصديرات.',
+      serverVersion: '',
+      authenticatedUid: 0,
+      companyName: '',
       diagnostics: {
-        xmlRpcJsonRpcEnabled: true,
-        readPermissionsVerified: true,
-        egyptCompanyFiltered: true,
-        latencyMs: 80,
+        xmlRpcJsonRpcEnabled: false,
+        readPermissionsVerified: false,
+        egyptCompanyFiltered: false,
+        latencyMs: 0,
       },
     };
   }
 
+  /** Field discovery requires a live Odoo connection; returns nothing until that is implemented. */
   static async inspectBrandFields(_config: OdooConnectionConfig): Promise<FieldInspectionResult[]> {
-    return [
-      {
-        model: 'product.brand',
-        modelNameArabic: 'العلامات التجارية المكتشفة في Odoo (Brands)',
-        totalFieldsScanned: 50,
-        candidateFields: [
-          {
-            fieldName: 'brand_id (ID: 29)',
-            fieldLabel: 'Hikvision',
-            fieldType: 'product.brand',
-            status: 'match_found',
-            sampleValue: 'Brand ID: 29',
-            notes: 'تم التحقق من وجوده في Odoo ومربوط بكاميرات ورخص HikCentral.',
-          },
-          {
-            fieldName: 'brand_id (ID: 11)',
-            fieldLabel: 'AMG Systems',
-            fieldType: 'product.brand',
-            status: 'match_found',
-            sampleValue: 'Brand ID: 11',
-            notes: 'تم التحقق من وجوده في Odoo ومربوط بمفاتيح ومحولات الشبكات الصناعية.',
-          },
-          {
-            fieldName: 'brand_id (IDs: 31, 33)',
-            fieldLabel: 'Velasea (IronLink / Dell)',
-            fieldType: 'product.brand',
-            status: 'match_found',
-            sampleValue: 'Brand IDs: 31, 33',
-            notes: 'خوادم التخزين ومصفوفات SAN المعتمدة في Odoo.',
-          },
-        ],
-      },
-      {
-        model: 'crm.team',
-        modelNameArabic: 'فريق المبيعات في Odoo (Sales Team)',
-        totalFieldsScanned: 10,
-        candidateFields: [
-          {
-            fieldName: 'team_id (ID: 35)',
-            fieldLabel: 'Physical Security BU',
-            fieldType: 'crm.team',
-            status: 'match_found',
-            sampleValue: 'Leader: Tamer Elshafey (UID: 595)',
-            notes: 'الفريق المعتمد في Odoo لإدارة PHY BU وأعضاؤه: تامر، رهاف، عمرو، نيفين، ومحمد.',
-          },
-        ],
-      },
-      {
-        model: 'product.category',
-        modelNameArabic: 'شجرة تصنيفات الأصناف (Categories)',
-        totalFieldsScanned: 1891,
-        candidateFields: [
-          {
-            fieldName: 'categ_id (ID: 1703)',
-            fieldLabel: 'PHBU',
-            fieldType: 'product.category',
-            status: 'match_found',
-            sampleValue: 'PHBU / Hikvision (1881), PHBU / AMG (262)',
-            notes: 'التصنيف الهيكلي الشامل لكافة أصناف إدارة PHY BU.',
-          },
-        ],
-      },
-    ];
+    return [];
   }
 
   static generatePhase0Dossier(
     _config: OdooConnectionConfig,
-    classificationRate: number = 98.4,
-    mixedRate: number = 16.0
+    _classificationRate: number = 0,
+    _mixedRate: number = 0
   ): Phase0AuditReport {
     return {
       generatedAt: new Date().toISOString(),
-      connectionStatus: 'verified',
-      serverUrl: 'https://www.eelaf.com/jsonrpc',
-      database: 'eelaf-master-21952014',
-      companyName: 'EELAF for Engineering and Information Technology S.A.E. (شركة إيلاف مصر)',
-      totalOrdersSampled: 20,
-      totalInvoicesSampled: 30,
-      totalStockMovesSampled: 25,
-      brandClassificationRate: classificationRate,
+      connectionStatus: 'pending',
+      serverUrl: '',
+      database: '',
+      companyName: 'EELAF for Engineering and Information Technology S.A.E.',
+      totalOrdersSampled: 0,
+      totalInvoicesSampled: 0,
+      totalStockMovesSampled: 0,
+      brandClassificationRate: 0,
       unclassifiedLinesCount: 0,
-      mixedInvoicesPercentage: mixedRate,
-      detectedBrandField: 'product.brand (brand_id) + crm.team (35: Physical Security BU)',
-      recommendations: [
-        'تم تأكيد الربط الحي 100% وإلغاء كافة البيانات الوهمية.',
-        'قاعدة البيانات الحية eelaf-master-21952014 تغذي المنصة مباشرة بكافة الأوامر والفواتير الحقيقية.',
-        'تم اعتماد فريق Physical Security BU (معرف 35) برئاسة Tamer Elshafey.',
-        'تم تثبيت معرفات التوكيلات: Hikvision (29), AMG Systems (11), Velasea (31, 33).',
-      ],
+      mixedInvoicesPercentage: 0,
+      detectedBrandField: 'not inspected',
+      recommendations: ['لم يُنفَّذ فحص حي لقاعدة Odoo. هذه القيم ليست نتيجة فحص.'],
     };
   }
 }

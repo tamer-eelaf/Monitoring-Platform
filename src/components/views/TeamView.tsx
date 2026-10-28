@@ -54,16 +54,12 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
         </div>
       </div>
 
-      {/* Real Team Verified Banner */}
-      <div className="p-3.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-xs text-slate-200 leading-relaxed flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>
-            <strong>تم التحقق من ربط الفريق المعتمد:</strong> فريق <strong>Physical Security BU (ID: 35)</strong> المسجل في <code className="font-mono text-emerald-300">crm.team</code> بقاعدة Odoo، برئاسة <strong className="text-white">Tamer Elshafey</strong>.
-          </span>
-        </div>
-        <span className="text-[11px] font-mono text-emerald-300 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700">
-          قاعدة حية: eelaf-master-21952014
+      {/* Honest data banner */}
+      <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-800/60 text-xs text-slate-200 leading-relaxed flex items-center gap-2">
+        <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+        <span>
+          الأرقام هنا مبيعات الأوامر المؤكدة لهذا العام من تصدير Odoo. <strong>المستهدفات والتحصيلات والمديونية غير متاحة</strong> في التصديرات الحالية.
+          عضوية الوحدة قائمة معرّفة يدوياً (<code className="font-mono text-amber-300">BU_MEMBERS</code> في scripts/build_dataset.mjs) وتحتاج تأكيداً.
         </span>
       </div>
 
@@ -71,7 +67,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
           <Award className="w-4 h-4 text-emerald-400" />
-          أعضاء فريق Physical Security BU الحقيقيون ({buMembers.length} أعضاء)
+          أعضاء الوحدة حسب القائمة المعرّفة ({buMembers.length})
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -94,13 +90,20 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
                 </div>
 
                 <div className="text-left font-mono">
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                    {member.targetAchievementRate}% إنجاز
-                  </span>
+                  {member.targetUSD > 0 ? (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                      {member.targetAchievementRate}% إنجاز
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800 font-sans">
+                      المستهدف غير محدد
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Progress to Target */}
+              {/* Progress to Target (only when a target exists) */}
+              {member.targetUSD > 0 && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span>المحقق من المستهدف:</span>
@@ -115,23 +118,24 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
                   />
                 </div>
               </div>
+              )}
 
-              {/* Collections & Outstanding AR */}
+              {/* Sales / quotes / active orders (collections & AR need the invoices export) */}
               <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 font-mono text-center text-xs">
                 <div>
-                  <div className="text-[10px] text-slate-500 font-sans">المحصل فعلياً</div>
+                  <div className="text-[10px] text-slate-500 font-sans">مبيعات مؤكدة (السنة)</div>
                   <div className="text-xs font-bold text-emerald-400 mt-0.5">
-                    ${member.collectionsUSD.toLocaleString()}
+                    ${member.totalSalesUSD.toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 font-sans">مديونية جارية</div>
+                  <div className="text-[10px] text-slate-500 font-sans">عروض مفتوحة</div>
                   <div className="text-xs font-bold text-amber-400 mt-0.5">
-                    ${member.outstandingARUSD.toLocaleString()}
+                    {member.openQuotesCount ?? '—'} · ${Math.round(member.openQuotesUSD ?? 0).toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 font-sans">أوامر نشطة</div>
+                  <div className="text-[10px] text-slate-500 font-sans">أوامر قيد التنفيذ</div>
                   <div className="text-xs font-bold text-blue-400 mt-0.5">
                     {member.activeOrdersCount}
                   </div>

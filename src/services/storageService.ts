@@ -23,7 +23,8 @@ import {
   INITIAL_STAFF_PERFORMANCE,
   INITIAL_ALERTS,
   INITIAL_USER_PROFILES,
-  INITIAL_PHASE0_REPORT
+  INITIAL_PHASE0_REPORT,
+  DATA_META,
 } from '../data/mockData';
 
 // V2 Storage Keys (migrated away from any v1 dummy data)
@@ -58,6 +59,52 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
+// When the generated dataset changes, cached copies in the browser are dropped so stale (or previously
+// invented) numbers can never survive in localStorage. Manually edited client contact fields are carried
+// over only when the previous cache already belongs to this versioned mechanism.
+const DATASET_VERSION_KEY = 'phy_bu_dataset_version';
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const version: string = (DATA_META && DATA_META.datasetVersion) || '';
+    const stored = window.localStorage.getItem(DATASET_VERSION_KEY);
+    if (version && stored !== version) {
+      let oldClients: EgyptClient[] = [];
+      if (stored) {
+        try {
+          oldClients = JSON.parse(window.localStorage.getItem(KEYS.CLIENTS) || '[]');
+        } catch {
+          oldClients = [];
+        }
+      }
+      [KEYS.INVOICES, KEYS.SUPPLIERS, KEYS.ORDERS, KEYS.STOCK, KEYS.CLIENTS, KEYS.STAFF, KEYS.ALERTS, KEYS.AUDIT_REPORT].forEach(
+        (k) => window.localStorage.removeItem(k)
+      );
+      if (oldClients.length > 0) {
+        const byId = new Map(oldClients.map((c) => [c.id, c]));
+        const merged = INITIAL_CLIENTS.map((c) => {
+          const o = byId.get(c.id);
+          return o
+            ? {
+                ...c,
+                phone: o.phone || c.phone,
+                email: o.email || c.email,
+                contactPerson: o.contactPerson || c.contactPerson,
+                city: o.city || c.city,
+                industry: o.industry || c.industry,
+                notes: o.notes || c.notes,
+                nameAr: o.nameAr || c.nameAr,
+              }
+            : c;
+        });
+        window.localStorage.setItem(KEYS.CLIENTS, JSON.stringify(merged));
+      }
+      window.localStorage.setItem(DATASET_VERSION_KEY, version);
+    }
+  } catch {
+    // storage unavailable — ignore
+  }
+}
+
 export interface AlertThresholds {
   stagnantDays: number; // default 90
   uninvoicedDays: number; // default 3
@@ -75,9 +122,9 @@ export const DEFAULT_THRESHOLDS: AlertThresholds = {
 };
 
 export const DEFAULT_ODOO_CONFIG: OdooConnectionConfig = {
-  url: 'https://www.eelaf.com/odoo',
-  db: 'eelaf-master-21952014',
-  username: 'tamer.elshafey@eelaf.com',
+  url: '',
+  db: '',
+  username: '',
   apiKey: '',
   isConnected: false,
   brandTagNames: ['Hikvision', 'Velasea', 'AMG'],

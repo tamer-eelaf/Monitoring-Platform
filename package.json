@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:data": "node scripts/build_dataset.mjs",
+    "verify:data": "node scripts/verify_dataset.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

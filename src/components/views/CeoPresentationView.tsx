@@ -113,6 +113,12 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
     return clients.find((c) => (c.name || '').toLowerCase().includes(cName));
   };
 
+  const latestOrderDate = useMemo(() => salesOrders.reduce((m, o) => ((o.date || '') > m ? (o.date || '') : m), ''), [salesOrders]);
+  const cutoff30 = useMemo(
+    () => (latestOrderDate ? new Date(Date.parse(latestOrderDate) - 30 * 86400000).toISOString().slice(0, 10) : ''),
+    [latestOrderDate]
+  );
+
   // 1. Intelligent Filtering & Re-tuning of Orders
   const tunedOrders = useMemo(() => {
     return salesOrders.filter((ord) => {
@@ -145,15 +151,13 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
 
       // E. Period Filter (Q4 2026 Focus)
       const d = ord.date || '';
-      const orderNum = ord.odooName || '';
-      const isLateSeptember = d >= '2026-09-20' || d.toLowerCase().includes('sep');
-      const isQ4 = d.startsWith('2026-10') || d.startsWith('2026-11') || d.startsWith('2026-12') || isLateSeptember || orderNum >= 'S40000';
+      const isQ4 = d >= '2026-10-01' && d < '2027-01-01';
 
       if (selectedPeriod === 'q4_2026' && !isQ4) {
         return false;
       }
       if (selectedPeriod === 'last_30_days') {
-        if (!(d >= '2026-09-25' || isQ4)) return false;
+        if (!(d >= cutoff30)) return false;
       }
       if (selectedPeriod === 'fy_2026' && !d.startsWith('2026')) {
         return false;
@@ -177,7 +181,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
 
       return true;
     });
-  }, [salesOrders, selectedBrand, selectedCurrency, selectedStatus, deliveryFilter, selectedPeriod, dealSizeFilter, searchQuery]);
+  }, [salesOrders, selectedBrand, selectedCurrency, selectedStatus, deliveryFilter, selectedPeriod, dealSizeFilter, searchQuery, cutoff30]);
 
   // Derived Financial Metrics based on tuned orders
   const confirmedOrders = useMemo(() => tunedOrders.filter((o) => o.status === 'confirmed' || o.rawStatus === 'Sales Order'), [tunedOrders]);
@@ -199,15 +203,19 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
     return ordersWithUpcoming.reduce((sum, o) => sum + (o.upcomingPayment || 0), 0);
   }, [ordersWithUpcoming]);
 
-  // Trapped Working Capital ($1.32M)
+  // Trapped working capital = delivered but not (fully) invoiced — computed from Odoo statuses only
   const deliveredNotInvoicedOrders = useMemo(
     () => salesOrders.filter((o) => o.isDeliveredNotInvoiced || (o.status === 'confirmed' && o.deliveryStatus === 'Fully Delivered' && o.invoiceStatus === 'To Invoice')),
     [salesOrders]
   );
   const totalDeliveredNotInvoicedUSD = useMemo(
-    () => deliveredNotInvoicedOrders.reduce((sum, o) => sum + o.totalUSD, 0) || 1318840,
+    () => deliveredNotInvoicedOrders.reduce((sum, o) => sum + o.totalUSD, 0),
     [deliveredNotInvoicedOrders]
   );
+
+  const usdShort = (x: number) => (x >= 1_000_000 ? `$${(x / 1_000_000).toFixed(2)}M` : `$${Math.round(x / 1000)}K`);
+  // Cash-flow projection needs REAL receivables + supplier payables; without them it is hidden (no invented numbers)
+  const hasCashData = invoices.length > 0 && supplierBills.length > 0;
 
   // Stock Metrics
   const filteredStock = useMemo(() => {
@@ -426,8 +434,8 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
   // ==========================================
   const cashFlowForecast = useMemo(() => {
     // Inflow Components
-    const scheduledUpcoming = totalUpcomingUSD || 267338;
-    const openInvoicesAR = invoices.filter((i) => i.paymentStatus !== 'paid').reduce((s, i) => s + i.amountResidualUSD, 0) || 420000;
+    const scheduledUpcoming = totalUpcomingUSD;
+    const openInvoicesAR = invoices.filter((i) => i.paymentStatus !== 'paid').reduce((s, i) => s + i.amountResidualUSD, 0);
     const deliveredNotInvoicedTarget = totalDeliveredNotInvoicedUSD * 0.35; // 35% targeted collection in Q4
 
     // Scenario Realization Factors
@@ -439,14 +447,14 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
     const totalProjectedInflow = projectedInflowUpcoming + projectedInflowAR + projectedInflowDelivered;
 
     // Outflow Components (Committed Supplier Payables & Operating Logistics)
-    const supplierPayables = supplierBills.reduce((s, b) => s + b.amountResidualUSD, 0) || 353000;
-    const logisticsDuty = 35000;
+    const supplierPayables = supplierBills.reduce((s, b) => s + b.amountResidualUSD, 0);
+    const logisticsDuty = 0; // not in any export
     const totalProjectedOutflow = supplierPayables + logisticsDuty;
 
     // Net Cash Flow Surplus / Deficit
     const netCashFlowUSD = totalProjectedInflow - totalProjectedOutflow;
     const netCashFlowEGP = netCashFlowUSD * CURRENT_EXCHANGE_RATE;
-    const coverageRatio = totalProjectedOutflow > 0 ? (totalProjectedInflow / totalProjectedOutflow).toFixed(2) : '3.00';
+    const coverageRatio = totalProjectedOutflow > 0 ? (totalProjectedInflow / totalProjectedOutflow).toFixed(2) : 'n/a';
 
     return {
       scenario: cashFlowScenario,
@@ -458,23 +466,18 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
         total: totalProjectedInflow,
       },
       outflowBreakdown: {
-        hikvision: 185000,
-        velasea: 95000,
-        amg: 45000,
-        bosch: 28000,
+        hikvision: supplierBills.filter((b) => b.brand === 'Hikvision').reduce((s, b) => s + b.amountResidualUSD, 0),
+        velasea: supplierBills.filter((b) => b.brand === 'Velasea').reduce((s, b) => s + b.amountResidualUSD, 0),
+        amg: supplierBills.filter((b) => b.brand === 'AMG').reduce((s, b) => s + b.amountResidualUSD, 0),
+        bosch: supplierBills.filter((b) => b.brand === 'Bosch').reduce((s, b) => s + b.amountResidualUSD, 0),
         logistics: logisticsDuty,
         total: totalProjectedOutflow,
       },
       netCashFlowUSD,
       netCashFlowEGP,
       coverageRatio,
-      weeklyTimeline: [
-        { week: 'الأسبوع 1 (أكتوبر)', inflow: Math.round(totalProjectedInflow * 0.15), outflow: 45000, net: Math.round(totalProjectedInflow * 0.15) - 45000 },
-        { week: 'الأسبوع 2 (أكتوبر)', inflow: Math.round(totalProjectedInflow * 0.25), outflow: 85000, net: Math.round(totalProjectedInflow * 0.25) - 85000 },
-        { week: 'الأسبوع 3 (نوفمبر)', inflow: Math.round(totalProjectedInflow * 0.30), outflow: 120000, net: Math.round(totalProjectedInflow * 0.30) - 120000 },
-        { week: 'الأسبوع 4 (نوفمبر)', inflow: Math.round(totalProjectedInflow * 0.20), outflow: 90000, net: Math.round(totalProjectedInflow * 0.20) - 90000 },
-        { week: 'الأسبوع 5 (ديسمبر)', inflow: Math.round(totalProjectedInflow * 0.10), outflow: 48000, net: Math.round(totalProjectedInflow * 0.10) - 48000 },
-      ],
+      // weekly distribution needs bill due dates + payment schedule (not available) — intentionally empty
+      weeklyTimeline: [] as { week: string; inflow: number; outflow: number; net: number }[],
     };
   }, [totalUpcomingUSD, invoices, totalDeliveredNotInvoicedUSD, supplierBills, cashFlowScenario]);
 
@@ -539,10 +542,9 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
         inventoryValue: totalStockValUSD,
         uninvoicedDeliveries: totalDeliveredNotInvoicedUSD,
         actionItems: [
-          `توقع صافي تدفق نقدي إيجابي في Q4: +$${cashFlowForecast.netCashFlowUSD.toLocaleString()} (فائض ممتاز)`,
-          'مصفوفة الربع السنوي: متابعة نمو مبيعات Q4 بنسبة ترسية مستهدفة 25%',
+          `عروض أسعار مفتوحة أقدم من 90 يوماً تحتاج مراجعة وإغلاق`,
           `تحصيل دفعات مجدولة قادمة بقيمة $${Math.round(totalUpcomingUSD).toLocaleString()}`,
-          'تسريع فوترة بضائع مسلمة للعملاء بقيمة $1.32M',
+          `تسريع فوترة بضائع مسلَّمة غير مفوترة بقيمة ${usdShort(totalDeliveredNotInvoicedUSD)}`,
         ],
       });
       setSupabaseSaveStatus('تم توثيق تقرير BUM ومصفوفة السيولة في سوبابيز بنجاح!');
@@ -583,13 +585,15 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {hasCashData && (
             <button
               onClick={() => setActiveTab('cash_flow')}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md cursor-pointer border border-emerald-600"
             >
               <Wallet className="w-3.5 h-3.5 text-emerald-300" />
-              <span>صافي التدفق النقدي (+${Math.round(cashFlowForecast.netCashFlowUSD / 1000)}K)</span>
+              <span>صافي التدفق النقدي ({cashFlowForecast.netCashFlowUSD >= 0 ? '+' : ''}${Math.round(cashFlowForecast.netCashFlowUSD / 1000)}K)</span>
             </button>
+            )}
 
             <button
               onClick={handleExportWeeklyCSV}
@@ -718,7 +722,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
             >
               <option value="all">كافة حالات التسليم</option>
-              <option value="delivered_uninvoiced">مسلّم ولم يُفوتر بعد ($1.32M)</option>
+              <option value="delivered_uninvoiced">مسلّم ولم يُفوتر بعد ({usdShort(totalDeliveredNotInvoicedUSD)})</option>
               <option value="Fully Delivered">تم التسليم بالكامل (Fully Delivered)</option>
               <option value="Partially Delivered">تسليم جزئي (Partially Delivered)</option>
               <option value="Not Delivered">لم يتم التسليم بعد (Not Delivered)</option>
@@ -834,7 +838,15 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
           </div>
         </div>
 
-        {/* Expected Net Cash Flow Surplus (NEW!) */}
+        {/* Net cash flow — shown only with real AR/AP data */}
+        {!hasCashData && (
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-3.5 space-y-1">
+          <div className="text-[11px] font-bold text-slate-300">صافي التدفق النقدي</div>
+          <div className="text-sm font-black text-amber-400">غير متاح</div>
+          <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800">يتطلب تصدير الفواتير ومستحقات الموردين من Odoo</div>
+        </div>
+        )}
+        {hasCashData && (
         <div className="bg-slate-900 border border-emerald-900/60 bg-emerald-950/20 rounded-xl p-3.5 space-y-1 cursor-pointer hover:border-emerald-700 transition-all"
              onClick={() => setActiveTab('cash_flow')}>
           <div className="flex items-center justify-between text-xs text-emerald-300">
@@ -842,13 +854,14 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
             <Wallet className="w-3.5 h-3.5 text-emerald-400" />
           </div>
           <div className="text-lg font-black font-mono text-emerald-400 flex items-center gap-1">
-            <span>+${Math.round(cashFlowForecast.netCashFlowUSD).toLocaleString()}</span>
+            <span>{cashFlowForecast.netCashFlowUSD >= 0 ? '+' : '-'}${Math.abs(Math.round(cashFlowForecast.netCashFlowUSD)).toLocaleString()}</span>
           </div>
           <div className="text-[10px] text-emerald-300/80 flex items-center justify-between font-mono pt-1 border-t border-emerald-900/40">
             <span>تغطية السيولة:</span>
-            <span className="font-bold text-emerald-300">{cashFlowForecast.coverageRatio}x فائض</span>
+            <span className="font-bold text-emerald-300">{cashFlowForecast.coverageRatio}x</span>
           </div>
         </div>
+        )}
 
         {/* Upcoming Collections */}
         <div className="bg-slate-900 border border-purple-900/60 bg-purple-950/10 rounded-xl p-3.5 space-y-1 cursor-pointer hover:border-purple-700 transition-all"
@@ -905,13 +918,13 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
           { id: 'bum_weekly', label: '1. شيت تقرير BUM الأسبوعي (Detailed Q4 Dossier)', icon: FileSpreadsheet },
           { id: 'quarterly_matrix', label: '2. مصفوفة الأداء الربع سنوي (Quarterly Matrix & YoY)', icon: BarChart3 },
           { id: 'cash_flow', label: '3. صافي التدفق النقدي المتوقع (Net Cash Flow Projection)', icon: Wallet },
-          { id: 'upcoming_cash', label: '4. تحصيلات مجدولة قادمة ($267K)', icon: CreditCard },
+          { id: 'upcoming_cash', label: `4. تحصيلات مجدولة قادمة (${usdShort(totalUpcomingUSD)})`, icon: CreditCard },
           { id: 'deals', label: '5. كبرى المشاريع والفرص (Strategic Deals)', icon: Award },
           { id: 'overview', label: '6. توزيع التوكيلات (Brand Portfolio)', icon: Layers },
           { id: 'inventory', label: '7. كشف المخزون الحي (Inventory Assets)', icon: Package },
           { id: 'team', label: '8. أداء فريق المبيعات (Sales Reps)', icon: TrendingUp },
           { id: 'recommendations', label: '9. مذكرات وتوجيهات للـ CEO (Action Memo)', icon: ShieldCheck },
-        ].map((t) => {
+        ].filter((t) => hasCashData || t.id !== 'cash_flow').map((t) => {
           const Icon = t.icon;
           return (
             <button
@@ -1311,7 +1324,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
       {/* ====================================================================== */}
       {/* 7. TAB 3: EXPECTED NET CASH FLOW PROJECTION (NEW FEATURE!) */}
       {/* ====================================================================== */}
-      {activeTab === 'cash_flow' && (
+      {activeTab === 'cash_flow' && hasCashData && (
         <div className="space-y-6 animate-fade-in">
           {/* Header & Scenario Simulator Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -1365,7 +1378,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                 +${cashFlowForecast.inflowBreakdown.total.toLocaleString()}
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                تشمل الدفعات المجدولة المؤكدة ($267K) + تحصيلات الفواتير المفتوحة + الدفعة الأولى من البضائع المسلمة ($1.32M).
+                تشمل الدفعات المجدولة ({usdShort(totalUpcomingUSD)}) + تحصيلات الفواتير المفتوحة + نسبة افتراضية من المسلَّم غير المفوتر ({usdShort(totalDeliveredNotInvoicedUSD)}).
               </p>
             </div>
 
@@ -1530,7 +1543,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
             <div>
               <h3 className="font-bold text-slate-100 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-purple-400" />
-                <span>التحصيلات المجدولة القادمة المسجلة بالشيت (Upcoming Scheduled Cash Inflow: $267,338)</span>
+                <span>التحصيلات المجدولة القادمة المسجلة بالشيت (Upcoming Scheduled Cash Inflow: ${Math.round(totalUpcomingUSD).toLocaleString()})</span>
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 الأوامر التي لها مواعيد استحقاق دفعات نقدية مسجلة في Odoo بحقل <code className="font-mono text-purple-300">Up coming Payment</code>
@@ -1857,12 +1870,12 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-red-300 flex items-center gap-1.5">
                     <span className="w-5 h-5 rounded-full bg-red-950 text-red-400 border border-red-800 flex items-center justify-center font-mono text-[11px]">1</span>
-                    تحرير سيولة رأس المال العامل ($1.32M)
+                    تحرير سيولة رأس المال العامل ({usdShort(totalDeliveredNotInvoicedUSD)})
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-red-950 text-red-300 border border-red-800">توجيه فوري</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed">
-                  توجيه إدارة العمليات واللوجستيات والمحاسبة بإنهاء اعتمادات التسليم للأوامر المسلمة وإصدار فواتير ضريبية للأصناف المتبقية لتحصيل فوري من عملاء كبار مثل Pharaonic Group وOrange وG4S.
+                  توجيه إدارة العمليات واللوجستيات والمحاسبة بإنهاء اعتمادات التسليم للأوامر المسلمة وإصدار فواتير ضريبية للأصناف المتبقية (راجع قائمة التنبيهات لأكبر الأوامر المسلَّمة وغير المفوترة).
                 </p>
               </div>
 
@@ -1896,7 +1909,7 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-amber-300 flex items-center gap-1.5">
                     <span className="w-5 h-5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 flex items-center justify-center font-mono text-[11px]">4</span>
-                    خطة تنشيط تصريف المخزون الراكد (EGP 20.5M)
+                    مراجعة وتصنيف المخزون (القيمة الحالية EGP {(totalStockValUSD * CURRENT_EXCHANGE_RATE / 1_000_000).toFixed(1)}M)
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-amber-950 text-amber-300 border border-amber-800">حملة تجارية</span>
                 </div>

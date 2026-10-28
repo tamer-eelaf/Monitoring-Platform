@@ -10,9 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Constants from environment
-const ODOO_URL = (process.env.URL || 'https://www.eelaf.com').replace(/\/odoo\/?$/, '').replace(/\/+$/, '') + '/jsonrpc';
-const ODOO_DB = process.env.DB || 'eelaf-master-21952014';
-const ODOO_USER = process.env.user_name || 'tamer.elshafey@eelaf.com';
+const ODOO_URL = (process.env.URL || '').replace(/\/odoo\/?$/, '').replace(/\/+$/, '') + '/jsonrpc';
+const ODOO_DB = process.env.DB || '';
+const ODOO_USER = process.env.user_name || '';
 const ODOO_PASSWORD = process.env.password;
 const EGYPT_COMPANY_ID = 1; // EELAF for Engineering and Information Technology S.A.E.
 const CURRENT_EXCHANGE_RATE = 50.0;
