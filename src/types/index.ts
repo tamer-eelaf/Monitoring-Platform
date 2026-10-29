@@ -241,3 +241,15 @@ export interface Phase0AuditReport {
   detectedBrandField: string;
   recommendations: string[];
 }
+
+export type TargetBasis = 'gross_vat_included' | 'net_untaxed';
+
+export interface AnnualSalesTargets {
+  year: number;
+  basis: TargetBasis; // default: 'gross_vat_included' (USD شامل الضريبة 14%)
+  totalBUTargetUSD: number | null;
+  hikvisionTargetUSD: number | null;
+  velaseaTargetUSD: number | null;
+  amgTargetUSD: number | null;
+  altriTargetUSD: number | null;
+}

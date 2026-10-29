@@ -33,7 +33,8 @@ import {
   UserProfile,
   PromiseStatus,
   EgyptClient,
-  BUStaffPerformance
+  BUStaffPerformance,
+  AnnualSalesTargets
 } from './types';
 import { CheckCircle2, RefreshCw, Loader2, Database, ShieldCheck } from 'lucide-react';
 import { DataModeBanner, DataGapNotice } from './components/common/DataNotice';
@@ -52,6 +53,9 @@ export default function App() {
   // Navigation & User Context
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [currentUser, setCurrentUser] = useState<UserProfile>(LIVE_USER_PROFILE);
+
+  // Annual Sales Targets (persisted in localStorage via StorageService)
+  const [annualTargets, setAnnualTargets] = useState<AnnualSalesTargets>(() => StorageService.getAnnualTargets(2026));
 
   // Data Stores (Preloaded with 100% genuine extracted Odoo dataset: 613 orders, 390 products, 123 invoices, 216 clients, 30 reps)
   const [invoices, setInvoices] = useState<CustomerInvoice[]>(() => StorageService.getInvoices());
@@ -348,6 +352,7 @@ export default function App() {
                     alerts={alerts}
                     currentUser={currentUser}
                     showVatIncluded={showVatIncluded}
+                    annualTargets={annualTargets}
                     onNavigateTab={setCurrentTab}
                     onSelectInvoice={setSelectedInvoiceDetail}
                     onEditPromise={setSelectedInvoicePromise}
@@ -361,6 +366,7 @@ export default function App() {
                     invoices={invoices}
                     supplierBills={supplierBills}
                     clients={clients}
+                    annualTargets={annualTargets}
                     onNavigateTab={setCurrentTab}
                   />
                 )}
@@ -424,6 +430,7 @@ export default function App() {
                 {currentTab === 'team' && (
                   <TeamView
                     staffPerformance={staffPerformance}
+                    annualTargets={annualTargets}
                   />
                 )}
 
@@ -443,6 +450,8 @@ export default function App() {
                     stockItems={stockItems}
                     clients={clients}
                     staffPerformance={staffPerformance}
+                    annualTargets={annualTargets}
+                    onUpdateAnnualTargets={setAnnualTargets}
                     onRefreshData={loadLiveOdooData}
                   />
                 )}

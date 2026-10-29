@@ -37,9 +37,9 @@ import {
   Wallet,
   Phone
 } from 'lucide-react';
-import { SalesOrder, StockItem, Brand, CustomerInvoice, SupplierBill, EgyptClient } from '../../types';
+import { SalesOrder, StockItem, Brand, CustomerInvoice, SupplierBill, EgyptClient, AnnualSalesTargets } from '../../types';
 import { saveCeoSnapshotToSupabase } from '../../services/supabaseClient';
-import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
+import { CURRENT_EXCHANGE_RATE, DATA_STATS } from '../../data/mockData';
 import { DataGapNotice } from '../common/DataNotice';
 
 interface CeoPresentationViewProps {
@@ -48,6 +48,7 @@ interface CeoPresentationViewProps {
   invoices?: CustomerInvoice[];
   supplierBills?: SupplierBill[];
   clients?: EgyptClient[];
+  annualTargets?: AnnualSalesTargets;
   onNavigateTab: (tabId: string) => void;
 }
 
@@ -57,8 +58,21 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
   invoices = [],
   supplierBills = [],
   clients = [],
+  annualTargets,
   onNavigateTab,
 }) => {
+  // Target Achievement Computations
+  const isUntaxedBasis = annualTargets?.basis === 'net_untaxed';
+  const ytdConfirmedGrossUSD = DATA_STATS?.ytd?.confirmedUSD ?? 1438328.37;
+  const ytdConfirmedUntaxedUSD = ytdConfirmedGrossUSD / 1.14;
+  const actualBUConfirmedSalesUSD = isUntaxedBasis ? ytdConfirmedUntaxedUSD : ytdConfirmedGrossUSD;
+
+  const totalBUTargetUSD = annualTargets?.totalBUTargetUSD;
+  const hasTotalTarget = typeof totalBUTargetUSD === 'number' && totalBUTargetUSD > 0;
+  const buAchievementRate = hasTotalTarget
+    ? ((actualBUConfirmedSalesUSD / totalBUTargetUSD) * 100).toFixed(1)
+    : null;
+
   // Navigation & Sub-Tabs
   const [activeTab, setActiveTab] = useState<
     'bum_weekly' | 'quarterly_matrix' | 'cash_flow' | 'upcoming_cash' | 'deals' | 'overview' | 'inventory' | 'team' | 'recommendations'
@@ -807,13 +821,41 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Executive KPI Cockpit Cards (6 Financial Pillars including Net Cash Flow) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      {/* 3. Executive KPI Cockpit Cards (Financial Pillars including Annual Target & Net Cash Flow) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+        {/* Total BU Annual Target Achievement */}
+        <div className="bg-slate-900 border border-blue-900/50 rounded-xl p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-xs text-blue-300">
+            <span className="font-semibold text-[11px]">المستهدف السنوي</span>
+            <Target className="w-3.5 h-3.5 text-blue-400" />
+          </div>
+          {hasTotalTarget ? (
+            <>
+              <div className="text-lg font-black font-mono text-emerald-400">
+                {buAchievementRate}%
+              </div>
+              <div className="text-[10px] text-slate-400 flex items-center justify-between font-mono pt-1 border-t border-slate-800/60">
+                <span>المحقق: ${Math.round(actualBUConfirmedSalesUSD / 1000)}K</span>
+                <span>الهدف: ${Math.round(totalBUTargetUSD / 1000)}K</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-bold text-amber-400 leading-snug pt-1">
+                غير متاح — حدّد الهدف في الإعدادات
+              </div>
+              <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800 font-sans">
+                يتطلب إدخال المستهدف
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Pipeline Untaxed & Total */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-semibold text-[11px]">فرص الشيت (Pipeline)</span>
-            <Target className="w-3.5 h-3.5 text-blue-400" />
+            <Briefcase className="w-3.5 h-3.5 text-blue-400" />
           </div>
           <div className="text-lg font-black font-mono text-slate-100">
             ${Math.round(totalPipelineUSD).toLocaleString()}
@@ -1714,6 +1756,30 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
       {/* ======================================================== */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Annual Target Banner */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                <Target className="w-4 h-4 text-emerald-400" />
+                <span>المستهدف السنوي لإدارة Physical Security BU (عام {annualTargets?.year || 2026})</span>
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                الأساس: {isUntaxedBasis ? 'USD قبل الضريبة' : 'USD شامل الضريبة 14%'} · مبيعات السنة المؤكدة: ${Math.round(actualBUConfirmedSalesUSD).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              {hasTotalTarget ? (
+                <div className="text-sm font-bold font-mono text-emerald-400">
+                  {buAchievementRate}% إنجاز <span className="text-xs text-slate-400 font-sans">(المستهدف: ${totalBUTargetUSD.toLocaleString()})</span>
+                </div>
+              ) : (
+                <div className="text-xs font-bold text-amber-400">
+                  غير متاح — حدّد الهدف في الإعدادات
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {['Hikvision', 'AMG', 'Velasea', 'Bosch'].map((brandName) => {
               const brandOrders = tunedOrders.filter((o) => (o.brand === brandName || (!o.brand && brandName === 'Hikvision')));
@@ -1751,6 +1817,11 @@ export const CeoPresentationView: React.FC<CeoPresentationViewProps> = ({
                       <span className="block text-slate-500 font-sans">أصول المخزون</span>
                       <span className="text-cyan-400 font-bold">${Math.round(brandStock).toLocaleString()}</span>
                     </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 text-[11px]">
+                    <span className="block text-slate-500 font-sans">إنجاز المستهدف:</span>
+                    <span className="text-amber-400 font-sans font-medium">غير متاح — يتطلب تصدير sale.order.line</span>
                   </div>
                 </div>
               );

@@ -8,7 +8,9 @@ import {
   UserProfile,
   Phase0AuditReport,
   EgyptClient,
-  BUStaffPerformance
+  BUStaffPerformance,
+  AnnualSalesTargets,
+  TargetBasis
 } from '../types';
 import {
   pushInvoicePromiseToSupabase,
@@ -128,6 +130,16 @@ export const DEFAULT_ODOO_CONFIG: OdooConnectionConfig = {
   apiKey: '',
   isConnected: false,
   brandTagNames: ['Hikvision', 'Velasea', 'AMG'],
+};
+
+export const DEFAULT_ANNUAL_TARGETS: AnnualSalesTargets = {
+  year: 2026,
+  basis: 'gross_vat_included',
+  totalBUTargetUSD: null,
+  hikvisionTargetUSD: null,
+  velaseaTargetUSD: null,
+  amgTargetUSD: null,
+  altriTargetUSD: null,
 };
 
 export class StorageService {
@@ -397,6 +409,50 @@ export class StorageService {
 
   static saveThresholds(thresholds: AlertThresholds): void {
     localStorage.setItem(KEYS.THRESHOLDS, JSON.stringify(thresholds));
+  }
+
+  static getAnnualTargets(year: number = 2026): AnnualSalesTargets {
+    try {
+      const key = `phy_bu_annual_targets_${year}_v1`;
+      const data = localStorage.getItem(key);
+      if (data) {
+        const parsed = JSON.parse(data);
+        return {
+          year,
+          basis: parsed.basis === 'net_untaxed' ? 'net_untaxed' : 'gross_vat_included',
+          totalBUTargetUSD: typeof parsed.totalBUTargetUSD === 'number' && !isNaN(parsed.totalBUTargetUSD) ? parsed.totalBUTargetUSD : null,
+          hikvisionTargetUSD: typeof parsed.hikvisionTargetUSD === 'number' && !isNaN(parsed.hikvisionTargetUSD) ? parsed.hikvisionTargetUSD : null,
+          velaseaTargetUSD: typeof parsed.velaseaTargetUSD === 'number' && !isNaN(parsed.velaseaTargetUSD) ? parsed.velaseaTargetUSD : null,
+          amgTargetUSD: typeof parsed.amgTargetUSD === 'number' && !isNaN(parsed.amgTargetUSD) ? parsed.amgTargetUSD : null,
+          altriTargetUSD: typeof parsed.altriTargetUSD === 'number' && !isNaN(parsed.altriTargetUSD) ? parsed.altriTargetUSD : null,
+        };
+      }
+      return { ...DEFAULT_ANNUAL_TARGETS, year };
+    } catch {
+      return { ...DEFAULT_ANNUAL_TARGETS, year };
+    }
+  }
+
+  static saveAnnualTargets(targets: AnnualSalesTargets): boolean {
+    try {
+      const key = `phy_bu_annual_targets_${targets.year || 2026}_v1`;
+      localStorage.setItem(key, JSON.stringify(targets));
+      return true;
+    } catch (e) {
+      console.warn('Error saving annual targets', e);
+      return false;
+    }
+  }
+
+  static clearAnnualTargets(year: number = 2026): boolean {
+    try {
+      const key = `phy_bu_annual_targets_${year}_v1`;
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      console.warn('Error clearing annual targets', e);
+      return false;
+    }
   }
 
   static resetToDefault(): void {

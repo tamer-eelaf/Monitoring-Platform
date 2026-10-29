@@ -22,7 +22,8 @@ import {
   Building,
   Users,
   Package,
-  Receipt
+  Receipt,
+  Target
 } from 'lucide-react';
 import {
   checkSupabaseConnection,
@@ -38,7 +39,9 @@ import {
   SalesOrder,
   StockItem,
   EgyptClient,
-  BUStaffPerformance
+  BUStaffPerformance,
+  AnnualSalesTargets,
+  TargetBasis
 } from '../../types';
 import { CURRENT_EXCHANGE_RATE } from '../../data/mockData';
 
@@ -49,6 +52,8 @@ interface SettingsViewProps {
   stockItems?: StockItem[];
   clients?: EgyptClient[];
   staffPerformance?: BUStaffPerformance[];
+  annualTargets?: AnnualSalesTargets;
+  onUpdateAnnualTargets?: (targets: AnnualSalesTargets) => void;
   onRefreshData?: () => void;
   onDataReload?: () => void;
 }
@@ -60,10 +65,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   stockItems = [],
   clients = [],
   staffPerformance = [],
+  annualTargets,
+  onUpdateAnnualTargets,
   onRefreshData,
   onDataReload,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'staging' | 'supabase' | 'odoo' | 'thresholds' | 'system'>('staging');
+  const [activeSubTab, setActiveSubTab] = useState<'staging' | 'targets' | 'supabase' | 'odoo' | 'thresholds' | 'system'>('staging');
 
   // Supabase State
   const [health, setHealth] = useState<SupabaseHealth | null>(null);
@@ -75,6 +82,87 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Thresholds State
   const [thresholds, setThresholds] = useState<AlertThresholds>(() => StorageService.getThresholds());
   const [thresholdSaved, setThresholdSaved] = useState(false);
+
+  // Annual Targets State
+  const currentTargets = annualTargets || StorageService.getAnnualTargets(2026);
+  const [targetYear, setTargetYear] = useState<number>(currentTargets.year || 2026);
+  const [targetBasis, setTargetBasis] = useState<TargetBasis>(currentTargets.basis || 'gross_vat_included');
+  const [totalTargetInput, setTotalTargetInput] = useState<string>(
+    currentTargets.totalBUTargetUSD != null ? String(currentTargets.totalBUTargetUSD) : ''
+  );
+  const [hikvisionInput, setHikvisionInput] = useState<string>(
+    currentTargets.hikvisionTargetUSD != null ? String(currentTargets.hikvisionTargetUSD) : ''
+  );
+  const [velaseaInput, setVelaseaInput] = useState<string>(
+    currentTargets.velaseaTargetUSD != null ? String(currentTargets.velaseaTargetUSD) : ''
+  );
+  const [amgInput, setAmgInput] = useState<string>(
+    currentTargets.amgTargetUSD != null ? String(currentTargets.amgTargetUSD) : ''
+  );
+  const [altriInput, setAltriInput] = useState<string>(
+    currentTargets.altriTargetUSD != null ? String(currentTargets.altriTargetUSD) : ''
+  );
+  const [targetSavedMsg, setTargetSavedMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (annualTargets) {
+      setTargetYear(annualTargets.year || 2026);
+      setTargetBasis(annualTargets.basis || 'gross_vat_included');
+      setTotalTargetInput(annualTargets.totalBUTargetUSD != null ? String(annualTargets.totalBUTargetUSD) : '');
+      setHikvisionInput(annualTargets.hikvisionTargetUSD != null ? String(annualTargets.hikvisionTargetUSD) : '');
+      setVelaseaInput(annualTargets.velaseaTargetUSD != null ? String(annualTargets.velaseaTargetUSD) : '');
+      setAmgInput(annualTargets.amgTargetUSD != null ? String(annualTargets.amgTargetUSD) : '');
+      setAltriInput(annualTargets.altriTargetUSD != null ? String(annualTargets.altriTargetUSD) : '');
+    }
+  }, [annualTargets]);
+
+  const handleSaveTargets = () => {
+    const parseVal = (str: string): number | null => {
+      const trimmed = str.trim();
+      if (!trimmed) return null;
+      const num = Number(trimmed);
+      return isNaN(num) || num <= 0 ? null : num;
+    };
+
+    const newTargets: AnnualSalesTargets = {
+      year: targetYear,
+      basis: targetBasis,
+      totalBUTargetUSD: parseVal(totalTargetInput),
+      hikvisionTargetUSD: parseVal(hikvisionInput),
+      velaseaTargetUSD: parseVal(velaseaInput),
+      amgTargetUSD: parseVal(amgInput),
+      altriTargetUSD: parseVal(altriInput),
+    };
+
+    const ok = StorageService.saveAnnualTargets(newTargets);
+    if (ok) {
+      onUpdateAnnualTargets?.(newTargets);
+      setTargetSavedMsg('تم حفظ أهداف المبيعات السنوية بنجاح.');
+      setTimeout(() => setTargetSavedMsg(null), 3500);
+    }
+  };
+
+  const handleClearTargets = () => {
+    StorageService.clearAnnualTargets(targetYear);
+    setTotalTargetInput('');
+    setHikvisionInput('');
+    setVelaseaInput('');
+    setAmgInput('');
+    setAltriInput('');
+    setTargetBasis('gross_vat_included');
+    const cleared: AnnualSalesTargets = {
+      year: targetYear,
+      basis: 'gross_vat_included',
+      totalBUTargetUSD: null,
+      hikvisionTargetUSD: null,
+      velaseaTargetUSD: null,
+      amgTargetUSD: null,
+      altriTargetUSD: null,
+    };
+    onUpdateAnnualTargets?.(cleared);
+    setTargetSavedMsg('تم مسح أهداف المبيعات بنجاح (الحقول فارغة الآن).');
+    setTimeout(() => setTargetSavedMsg(null), 3500);
+  };
 
   // Staged Ingestion File Upload State
   const [uploadFileType, setUploadFileType] = useState<'vendor_bills' | 'payments' | 'stock_moves' | 'custom'>('vendor_bills');
@@ -184,9 +272,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Sub-Tabs */}
-        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs font-medium">
+        <div className="flex flex-wrap items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs font-medium gap-1">
           {[
             { id: 'staging', label: 'دفعات البيانات (المراحل)', icon: Layers },
+            { id: 'targets', label: 'الأهداف السنوية', icon: Target },
             { id: 'supabase', label: 'سوبابيز (Supabase)', icon: Database },
             { id: 'odoo', label: 'خادم Odoo المباشر', icon: Server },
             { id: 'thresholds', label: 'عتبات التنبيه', icon: Bell },
@@ -412,6 +501,209 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-3 rounded-lg bg-blue-950/40 border border-blue-800 text-xs text-slate-200 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="flex-1">{uploadStatus}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SECTION: ANNUAL TARGETS (الأهداف السنوية) */}
+      {activeSubTab === 'targets' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <Target className="w-4 h-4 text-emerald-400" />
+                <span>أهداف المبيعات السنوية (Sales Targets - عام {targetYear})</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                تحديد المستهدف السنوي لإدارة Physical Security BU ولكل توكيل. الحقول فارغة افتراضياً ولا يُفترض أي رقم دون تحديدك.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-medium">سنة المستهدف:</span>
+              <select
+                value={targetYear}
+                onChange={(e) => {
+                  const y = Number(e.target.value);
+                  setTargetYear(y);
+                  const t = StorageService.getAnnualTargets(y);
+                  setTargetBasis(t.basis || 'gross_vat_included');
+                  setTotalTargetInput(t.totalBUTargetUSD != null ? String(t.totalBUTargetUSD) : '');
+                  setHikvisionInput(t.hikvisionTargetUSD != null ? String(t.hikvisionTargetUSD) : '');
+                  setVelaseaInput(t.velaseaTargetUSD != null ? String(t.velaseaTargetUSD) : '');
+                  setAmgInput(t.amgTargetUSD != null ? String(t.amgTargetUSD) : '');
+                  setAltriInput(t.altriTargetUSD != null ? String(t.altriTargetUSD) : '');
+                }}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
+              >
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+                <option value={2025}>2025</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Basis Selection */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <label className="block text-xs font-bold text-slate-200">
+              أساس احتساب الهدف والمبيعات المحققة (Target Basis):
+            </label>
+            <select
+              value={targetBasis}
+              onChange={(e) => setTargetBasis(e.target.value as TargetBasis)}
+              className="w-full sm:w-auto bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-sans focus:outline-none focus:border-blue-500"
+            >
+              <option value="gross_vat_included">
+                USD شامل الضريبة 14% (الافتراضي — أساس بيانات المنصة ومبيعات Odoo)
+              </option>
+              <option value="net_untaxed">
+                USD قبل الضريبة (صافي القيمة بدون 14% ضريبة القيمة المضافة)
+              </option>
+            </select>
+            <p className="text-[11px] text-slate-400">
+              {targetBasis === 'gross_vat_included'
+                ? 'سيتم قياس الإنجاز الإجمالي بمقارنة الهدف مع stats.ytd.confirmedUSD ($1,438,328.37) شاملاً ضريبة 14%.'
+                : 'سيتم قياس الإنجاز الإجمالي بمقارنة الهدف مع صافي المبيعات غير الخاضعة للضريبة ($1,261,691.55).'}
+            </p>
+          </div>
+
+          {/* Target Inputs Form */}
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-blue-950/20 border border-blue-900/60 space-y-2">
+              <label className="block text-xs font-bold text-blue-300">
+                1. الهدف السنوي الإجمالي للإدارة (Total BU Annual Target USD):
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-slate-400">$</span>
+                <input
+                  type="number"
+                  placeholder="غير محدد — أدخل المستهدف بالدولار"
+                  value={totalTargetInput}
+                  onChange={(e) => setTotalTargetInput(e.target.value)}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                إذا تُرك هذا الحقل فارغاً، ستعرض الشاشات (Dashboard وCEO وTeam) عبارة: <code className="text-amber-300 font-sans">"غير متاح — حدّد الهدف في الإعدادات"</code> بدلاً من أي نسبة مئوية.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Hikvision Target */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-red-400">
+                    2. هدف توكيل Hikvision السنوي (USD):
+                  </label>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-800 font-mono">Core</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-slate-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="فارغ — أدخل هدف Hikvision"
+                    value={hikvisionInput}
+                    onChange={(e) => setHikvisionInput(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              {/* Velasea Target */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-400">
+                    3. هدف توكيل Velasea السنوي (USD):
+                  </label>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800 font-mono">Servers</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-slate-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="فارغ — أدخل هدف Velasea"
+                    value={velaseaInput}
+                    onChange={(e) => setVelaseaInput(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              {/* AMG Target */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-cyan-400">
+                    4. هدف توكيل AMG Systems السنوي (USD):
+                  </label>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800 font-mono">Transmission</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-slate-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="فارغ — أدخل هدف AMG"
+                    value={amgInput}
+                    onChange={(e) => setAmgInput(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              {/* Altri Target */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-purple-400">
+                    5. هدف توكيل Altri (بقية التوكيلات) السنوي (USD):
+                  </label>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800 font-mono">Others</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-slate-400">$</span>
+                  <input
+                    type="number"
+                    placeholder="فارغ — أدخل هدف Altri"
+                    value={altriInput}
+                    onChange={(e) => setAltriInput(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Note about brand breakdown requiring order.lines */}
+            <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-800/60 text-xs text-slate-300 leading-relaxed flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <strong>تنويه تكامل البيانات:</strong> نظراً لأن ملفات Odoo المرفوعة لا تتضمن أسطر الأصناف التفصيلية (<code className="text-amber-300 font-mono">order.lines</code>)، فإن نسبة إنجاز كل توكيل ستظهر في الشاشات التنفيذية: <code className="text-amber-300 font-sans">"غير متاح — يتطلب تصدير sale.order.line"</code> دون اختراع أي نسبة جزئية.
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons & Feedback */}
+          <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveTargets}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-md"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ الأهداف</span>
+              </button>
+
+              <button
+                onClick={handleClearTargets}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>مسح الأهداف</span>
+              </button>
+            </div>
+
+            {targetSavedMsg && (
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{targetSavedMsg}</span>
               </div>
             )}
           </div>

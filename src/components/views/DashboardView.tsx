@@ -11,7 +11,8 @@ import {
   ArrowUpRight,
   ShieldCheck,
   CheckCircle2,
-  Briefcase
+  Briefcase,
+  Target
 } from 'lucide-react';
 import {
   CustomerInvoice,
@@ -19,8 +20,10 @@ import {
   SalesOrder,
   StockItem,
   SystemAlert,
-  UserProfile
+  UserProfile,
+  AnnualSalesTargets
 } from '../../types';
+import { DATA_STATS } from '../../data/mockData';
 
 interface DashboardViewProps {
   invoices: CustomerInvoice[];
@@ -30,6 +33,7 @@ interface DashboardViewProps {
   alerts: SystemAlert[];
   currentUser: UserProfile;
   showVatIncluded: boolean;
+  annualTargets?: AnnualSalesTargets;
   onNavigateTab: (tabId: string) => void;
   onSelectInvoice: (invoice: CustomerInvoice) => void;
   onEditPromise: (invoice: CustomerInvoice) => void;
@@ -43,10 +47,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   alerts,
   currentUser,
   showVatIncluded,
+  annualTargets,
   onNavigateTab,
   onSelectInvoice,
   onEditPromise,
 }) => {
+  // Target Achievement Computations
+  const isUntaxedBasis = annualTargets?.basis === 'net_untaxed';
+  const ytdConfirmedGrossUSD = DATA_STATS?.ytd?.confirmedUSD ?? 1438328.37;
+  const ytdConfirmedUntaxedUSD = ytdConfirmedGrossUSD / 1.14;
+  const actualBUConfirmedSalesUSD = isUntaxedBasis ? ytdConfirmedUntaxedUSD : ytdConfirmedGrossUSD;
+
+  const totalBUTargetUSD = annualTargets?.totalBUTargetUSD;
+  const hasTotalTarget = typeof totalBUTargetUSD === 'number' && totalBUTargetUSD > 0;
+  const buAchievementRate = hasTotalTarget
+    ? ((actualBUConfirmedSalesUSD / totalBUTargetUSD) * 100).toFixed(1)
+    : null;
+
   // Financial Computations
   const totalOutstandingUSD = invoices.reduce(
     (sum, inv) => sum + inv.amountResidualUSD,
@@ -119,6 +136,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="font-sans text-amber-400">غير متاح</span>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Annual Sales Target & Achievement Banner */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-950/80 border border-blue-800 flex items-center justify-center shrink-0">
+            <Target className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-100">
+                المستهدف السنوي لإدارة Physical Security BU (عام {annualTargets?.year || 2026})
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400 font-mono">
+                الأساس: {isUntaxedBasis ? 'USD قبل الضريبة' : 'USD شامل الضريبة 14%'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              مبيعات السنة المؤكدة (stats.ytd.confirmedUSD): <span className="font-mono font-bold text-slate-200">${Math.round(actualBUConfirmedSalesUSD).toLocaleString()}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {hasTotalTarget ? (
+            <div className="space-y-1 min-w-[220px]">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-400 font-sans">نسبة الإنجاز الإجمالي:</span>
+                <span className="font-bold text-emerald-400 text-sm">{buAchievementRate}%</span>
+              </div>
+              <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                <div
+                  style={{ width: `${Math.min(Number(buAchievementRate), 100)}%` }}
+                  className="h-full bg-emerald-500 transition-all"
+                />
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono text-left">
+                المستهدف: ${totalBUTargetUSD.toLocaleString()}
+              </div>
+            </div>
+          ) : (
+            <div className="px-3.5 py-2 rounded-lg bg-amber-950/40 border border-amber-800/80 text-amber-300 text-xs font-semibold flex items-center gap-2">
+              <span>غير متاح — حدّد الهدف في الإعدادات</span>
+              <button
+                onClick={() => onNavigateTab('settings')}
+                className="text-[11px] text-blue-400 hover:underline font-normal cursor-pointer"
+              >
+                (فتح الإعدادات)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -352,6 +421,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             لا يتضمن تصدير أوامر البيع الحالي تفاصيل أسطر الأصناف والتوكيلات (Brand Lines)، لذا لا يمكن استنتاج نسبة كل توكيل بدقة دون تصدير ملف <code className="text-amber-300 font-mono">sale.order.line</code> من Odoo.
           </div>
         )}
+
+        {/* Brand Targets & Achievement Breakdown */}
+        <div className="pt-3 border-t border-slate-800">
+          <div className="text-xs font-bold text-slate-300 mb-2.5 flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-blue-400" />
+            <span>متابعة إنجاز الأهداف السنوية للتوكيلات:</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-red-400">Hikvision</span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {annualTargets?.hikvisionTargetUSD ? `$${annualTargets.hikvisionTargetUSD.toLocaleString()}` : 'هدف غير محدد'}
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-400 font-sans">
+                غير متاح — يتطلب تصدير sale.order.line
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-400">Velasea</span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {annualTargets?.velaseaTargetUSD ? `$${annualTargets.velaseaTargetUSD.toLocaleString()}` : 'هدف غير محدد'}
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-400 font-sans">
+                غير متاح — يتطلب تصدير sale.order.line
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-cyan-400">AMG Systems</span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {annualTargets?.amgTargetUSD ? `$${annualTargets.amgTargetUSD.toLocaleString()}` : 'هدف غير محدد'}
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-400 font-sans">
+                غير متاح — يتطلب تصدير sale.order.line
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-purple-400">Altri (أخرى)</span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {annualTargets?.altriTargetUSD ? `$${annualTargets.altriTargetUSD.toLocaleString()}` : 'هدف غير محدد'}
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-400 font-sans">
+                غير متاح — يتطلب تصدير sale.order.line
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -45,6 +45,7 @@ export const INITIAL_USER_PROFILES: UserProfile[] = [
 
 // Datasets come from scripts/build_dataset.mjs (Odoo exports). Anything the exports do not contain is EMPTY — see meta.provenance.
 export const DATA_META: any = (odooExtractedData as any).meta || {};
+export const DATA_STATS: any = (odooExtractedData as any).stats || {};
 export const DATA_REPORT_DATE: string = (odooExtractedData as any).extractedDate || '';
 export const INITIAL_SALES_ORDERS: SalesOrder[] = (odooExtractedData.salesOrders as any) || [];
 export const INITIAL_STOCK_ITEMS: StockItem[] = (odooExtractedData.products as any) || [];

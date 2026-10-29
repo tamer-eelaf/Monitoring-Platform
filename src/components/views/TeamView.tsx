@@ -10,14 +10,19 @@ import {
   Briefcase,
   ShieldCheck
 } from 'lucide-react';
-import { BUStaffPerformance } from '../../types';
+import { BUStaffPerformance, AnnualSalesTargets } from '../../types';
 import { DataGapNotice } from '../common/DataNotice';
+import { DATA_STATS } from '../../data/mockData';
 
 interface TeamViewProps {
   staffPerformance?: BUStaffPerformance[];
+  annualTargets?: AnnualSalesTargets;
 }
 
-export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => {
+export const TeamView: React.FC<TeamViewProps> = ({
+  staffPerformance = [],
+  annualTargets,
+}) => {
   if (staffPerformance.length === 0) {
     return (
       <DataGapNotice
@@ -31,6 +36,18 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
     );
   }
 
+  // Target Achievement Computations
+  const isUntaxedBasis = annualTargets?.basis === 'net_untaxed';
+  const ytdConfirmedGrossUSD = DATA_STATS?.ytd?.confirmedUSD ?? 1438328.37;
+  const ytdConfirmedUntaxedUSD = ytdConfirmedGrossUSD / 1.14;
+  const actualBUConfirmedSalesUSD = isUntaxedBasis ? ytdConfirmedUntaxedUSD : ytdConfirmedGrossUSD;
+
+  const totalBUTargetUSD = annualTargets?.totalBUTargetUSD;
+  const hasTotalTarget = typeof totalBUTargetUSD === 'number' && totalBUTargetUSD > 0;
+  const buAchievementRate = hasTotalTarget
+    ? ((actualBUConfirmedSalesUSD / totalBUTargetUSD) * 100).toFixed(1)
+    : null;
+
   const buMembers = staffPerformance.filter((s) => s.isBU);
   const outsideBUMembers = staffPerformance.filter((s) => !s.isBU);
 
@@ -40,7 +57,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
   return (
     <div className="space-y-6">
       {/* View Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-400" />
@@ -51,8 +68,25 @@ export const TeamView: React.FC<TeamViewProps> = ({ staffPerformance = [] }) => 
           </p>
         </div>
 
-        {/* Aggregate Sales Split */}
-        <div className="flex items-center gap-3">
+        {/* Aggregate Sales & Target Split */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Total BU Target Achievement */}
+          <div className="bg-slate-900 border border-blue-900/60 rounded-xl px-3.5 py-2">
+            <div className="text-[10px] text-blue-300 flex items-center gap-1">
+              <Target className="w-3 h-3 text-blue-400" />
+              <span>المستهدف السنوي ونسبة الإنجاز (YTD):</span>
+            </div>
+            {hasTotalTarget ? (
+              <div className="text-base font-bold font-mono text-emerald-400">
+                {buAchievementRate}% <span className="text-xs text-slate-400 font-sans">(${Math.round(actualBUConfirmedSalesUSD).toLocaleString()} / ${totalBUTargetUSD.toLocaleString()})</span>
+              </div>
+            ) : (
+              <div className="text-xs font-semibold text-amber-400 mt-0.5">
+                غير متاح — حدّد الهدف في الإعدادات
+              </div>
+            )}
+          </div>
+
           <div className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
             <div className="text-[10px] text-slate-400">مبيعات مناديب الإدارة:</div>
             <div className="text-base font-bold font-mono text-emerald-400">
