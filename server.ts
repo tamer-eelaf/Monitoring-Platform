@@ -53,6 +53,21 @@ async function callOdooRpc(service: string, method: string, args: any[]) {
   return data.result;
 }
 
+function toCsvRow(values: (string | number | null | undefined)[]): string {
+  return (
+    values
+      .map((val) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      })
+      .join(',') + '\r\n'
+  );
+}
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -125,7 +140,309 @@ async function startServer() {
     }
   });
 
-  // 3. Complete Pure Live Data Query
+  // 3. Live Odoo Data Export to CSV (Raw stream direct from Odoo without local disk storage)
+  app.get('/api/odoo/export/:kind', async (req, res) => {
+    const { kind } = req.params;
+    const validKinds = ['order_lines', 'invoices', 'vendor_bills', 'stock_moves'];
+    if (!validKinds.includes(kind)) {
+      return res.status(400).json({
+        error: `نوع التصدير '${kind}' غير صالح. الأنواع المسموحة فقط: ${validKinds.join(', ')}`,
+      });
+    }
+
+    if (!ODOO_URL || !ODOO_DB || !ODOO_USER || !ODOO_PASSWORD) {
+      return res.status(500).json({
+        error: 'متغيرات بيئة الاتصال بـ Odoo غير مكتملة على الخادم (يرجى ضبط URL و DB و user_name و password).',
+      });
+    }
+
+    let uid: number;
+    try {
+      uid = await callOdooRpc('common', 'authenticate', [
+        ODOO_DB,
+        ODOO_USER,
+        ODOO_PASSWORD,
+        {},
+      ]);
+      if (!uid) {
+        return res.status(401).json({
+          error: 'فشلت المصادقة مع Odoo. تأكد من صحة اسم المستخدم وكلمة المرور في متغيرات البيئة.',
+        });
+      }
+    } catch (err: any) {
+      return res.status(502).json({
+        error: `فشل الاتصال بخادم Odoo: ${err.message}`,
+      });
+    }
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `odoo_${kind}_${timestamp}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // Send UTF-8 BOM so Excel opens Arabic correctly
+    res.write('\uFEFF');
+
+    let clientAborted = false;
+    req.on('close', () => {
+      clientAborted = true;
+    });
+
+    const limit = 500;
+    let offset = 0;
+
+    try {
+      if (kind === 'order_lines') {
+        res.write(
+          toCsvRow([
+            'order_id',
+            'order_id.date_order',
+            'order_id.state',
+            'salesman_id',
+            'order_partner_id',
+            'product_id',
+            'product_id.categ_id',
+            'product_uom_qty',
+            'qty_delivered',
+            'qty_invoiced',
+            'price_unit',
+            'price_subtotal',
+            'price_total',
+            'order_id.currency_id',
+          ])
+        );
+
+        const orderDateCache = new Map<number, string>();
+
+        while (!clientAborted) {
+          const lines = await callOdooRpc('object', 'execute_kw', [
+            ODOO_DB,
+            uid,
+            ODOO_PASSWORD,
+            'sale.order.line',
+            'search_read',
+            [[]],
+            {
+              fields: [
+                'order_id',
+                'state',
+                'salesman_id',
+                'order_partner_id',
+                'product_id',
+                'categ_id',
+                'product_uom_qty',
+                'qty_delivered',
+                'qty_invoiced',
+                'price_unit',
+                'price_subtotal',
+                'price_total',
+                'currency_id',
+                'create_date',
+              ],
+              limit,
+              offset,
+            },
+          ]);
+
+          if (!lines || lines.length === 0) break;
+
+          // Batch resolve uncached order dates for this chunk
+          const uncachedOrderIds = Array.from(
+            new Set(
+              lines
+                .map((l: any) => l.order_id?.[0])
+                .filter((id: any) => id && !orderDateCache.has(id))
+            )
+          );
+
+          if (uncachedOrderIds.length > 0) {
+            try {
+              const ordersData = await callOdooRpc('object', 'execute_kw', [
+                ODOO_DB,
+                uid,
+                ODOO_PASSWORD,
+                'sale.order',
+                'search_read',
+                [[['id', 'in', uncachedOrderIds]]],
+                {
+                  fields: ['id', 'date_order'],
+                  limit: uncachedOrderIds.length,
+                },
+              ]);
+              if (Array.isArray(ordersData)) {
+                ordersData.forEach((o: any) => {
+                  orderDateCache.set(o.id, o.date_order || '');
+                });
+              }
+            } catch {
+              // Fallback to create_date
+            }
+          }
+
+          let chunk = '';
+          for (const l of lines) {
+            const orderDate = orderDateCache.get(l.order_id?.[0]) || l.create_date || '';
+            chunk += toCsvRow([
+              l.order_id?.[1] || (l.order_id ? String(l.order_id) : ''),
+              orderDate,
+              l.state || '',
+              l.salesman_id?.[1] || (l.salesman_id ? String(l.salesman_id) : ''),
+              l.order_partner_id?.[1] || (l.order_partner_id ? String(l.order_partner_id) : ''),
+              l.product_id?.[1] || (l.product_id ? String(l.product_id) : ''),
+              l.categ_id?.[1] || (l.categ_id ? String(l.categ_id) : ''),
+              l.product_uom_qty,
+              l.qty_delivered,
+              l.qty_invoiced,
+              l.price_unit,
+              l.price_subtotal,
+              l.price_total,
+              l.currency_id?.[1] || (l.currency_id ? String(l.currency_id) : ''),
+            ]);
+          }
+          res.write(chunk);
+
+          if (lines.length < limit) break;
+          offset += limit;
+        }
+      } else if (kind === 'invoices' || kind === 'vendor_bills') {
+        const isInvoice = kind === 'invoices';
+        const domain = isInvoice
+          ? [['move_type', '=', 'out_invoice'], ['state', '=', 'posted']]
+          : [['move_type', '=', 'in_invoice']];
+
+        res.write(
+          toCsvRow([
+            'name',
+            'partner_id',
+            'invoice_date',
+            'invoice_date_due',
+            'invoice_user_id',
+            'amount_untaxed',
+            'amount_total',
+            'amount_residual',
+            'payment_state',
+            'invoice_origin',
+            'currency_id',
+          ])
+        );
+
+        while (!clientAborted) {
+          const records = await callOdooRpc('object', 'execute_kw', [
+            ODOO_DB,
+            uid,
+            ODOO_PASSWORD,
+            'account.move',
+            'search_read',
+            [domain],
+            {
+              fields: [
+                'name',
+                'partner_id',
+                'invoice_date',
+                'invoice_date_due',
+                'invoice_user_id',
+                'amount_untaxed',
+                'amount_total',
+                'amount_residual',
+                'payment_state',
+                'invoice_origin',
+                'currency_id',
+              ],
+              limit,
+              offset,
+            },
+          ]);
+
+          if (!records || records.length === 0) break;
+
+          let chunk = '';
+          for (const r of records) {
+            chunk += toCsvRow([
+              r.name || '',
+              r.partner_id?.[1] || (r.partner_id ? String(r.partner_id) : ''),
+              r.invoice_date || '',
+              r.invoice_date_due || '',
+              r.invoice_user_id?.[1] || (r.invoice_user_id ? String(r.invoice_user_id) : ''),
+              r.amount_untaxed,
+              r.amount_total,
+              r.amount_residual,
+              r.payment_state || '',
+              r.invoice_origin || '',
+              r.currency_id?.[1] || (r.currency_id ? String(r.currency_id) : ''),
+            ]);
+          }
+          res.write(chunk);
+
+          if (records.length < limit) break;
+          offset += limit;
+        }
+      } else if (kind === 'stock_moves') {
+        res.write(
+          toCsvRow([
+            'date',
+            'reference',
+            'product_id',
+            'location_id',
+            'location_dest_id',
+            'quantity',
+          ])
+        );
+
+        while (!clientAborted) {
+          const records = await callOdooRpc('object', 'execute_kw', [
+            ODOO_DB,
+            uid,
+            ODOO_PASSWORD,
+            'stock.move.line',
+            'search_read',
+            [[['state', '=', 'done']]],
+            {
+              fields: [
+                'date',
+                'reference',
+                'product_id',
+                'location_id',
+                'location_dest_id',
+                'quantity',
+                'qty_done',
+              ],
+              limit,
+              offset,
+            },
+          ]);
+
+          if (!records || records.length === 0) break;
+
+          let chunk = '';
+          for (const r of records) {
+            chunk += toCsvRow([
+              r.date || '',
+              r.reference || '',
+              r.product_id?.[1] || (r.product_id ? String(r.product_id) : ''),
+              r.location_id?.[1] || (r.location_id ? String(r.location_id) : ''),
+              r.location_dest_id?.[1] || (r.location_dest_id ? String(r.location_dest_id) : ''),
+              r.quantity ?? r.qty_done ?? '',
+            ]);
+          }
+          res.write(chunk);
+
+          if (records.length < limit) break;
+          offset += limit;
+        }
+      }
+
+      res.end();
+    } catch (err: any) {
+      console.error(`Export error for ${kind}:`, err);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: `حدث خطأ أثناء تصدير بيانات ${kind}: ${err.message}` });
+      } else {
+        res.end();
+      }
+    }
+  });
+
+  // 4. Complete Pure Live Data Query
   app.get('/api/odoo/live-data', async (req, res) => {
     try {
       const uid = await callOdooRpc('common', 'authenticate', [

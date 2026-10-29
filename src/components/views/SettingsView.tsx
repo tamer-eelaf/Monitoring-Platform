@@ -23,7 +23,9 @@ import {
   Users,
   Package,
   Receipt,
-  Target
+  Target,
+  Download,
+  Loader2
 } from 'lucide-react';
 import {
   checkSupabaseConnection,
@@ -168,6 +170,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [uploadFileType, setUploadFileType] = useState<'vendor_bills' | 'payments' | 'stock_moves' | 'custom'>('vendor_bills');
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+
+  // Live Odoo Export State
+  const [exportingKind, setExportingKind] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+
+  const handleExportOdoo = async (
+    kind: 'order_lines' | 'invoices' | 'vendor_bills' | 'stock_moves',
+    label: string
+  ) => {
+    setExportingKind(kind);
+    setExportError(null);
+    setExportSuccess(null);
+
+    try {
+      const response = await fetch(`/api/odoo/export/${kind}`);
+      if (!response.ok) {
+        let errorMsg = `خطأ في الخادم (رمز الحالة ${response.status})`;
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) errorMsg = errorData.error;
+        } catch {
+          const text = await response.text();
+          if (text) errorMsg = text;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `odoo_${kind}_${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setExportSuccess(`تم بنجاح تنزيل ملف "${label}" مباشرة من Odoo.`);
+      setTimeout(() => setExportSuccess(null), 6000);
+    } catch (err: any) {
+      setExportError(
+        err.message || 'تعذر الاتصال بخادم Odoo أو لم تُضبط متغيرات البيئة بالشكل الصحيح على الخادم.'
+      );
+    } finally {
+      setExportingKind(null);
+    }
+  };
 
   // Check Supabase on mount
   useEffect(() => {
@@ -885,6 +936,194 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <span className="px-2.5 py-1 rounded bg-purple-950/60 border border-purple-800 text-purple-300">Velasea IronLink (ID: 31)</span>
               <span className="px-2.5 py-1 rounded bg-indigo-950/60 border border-indigo-800 text-indigo-300">Velasea Dell (ID: 33)</span>
               <span className="px-2.5 py-1 rounded bg-amber-950/60 border border-amber-800 text-amber-300">AMG Systems UK (ID: 11)</span>
+            </div>
+          </div>
+
+          {/* Section: Odoo Data Export (تصدير بيانات Odoo) */}
+          <div className="pt-4 border-t border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>تصدير بيانات Odoo الحية (Live CSV Exports)</span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  تنزيل ملفات CSV بترميز UTF-8 مع BOM لقراءتها في Excel، تُقرأ مباشرة من خادم Odoo على دفعات دون حد أقصى ولا تُخزَّن محلياً.
+                </p>
+              </div>
+            </div>
+
+            {/* Error Message Box */}
+            {exportError && (
+              <div className="p-3.5 rounded-xl bg-red-950/60 border border-red-800 text-xs text-red-200 flex items-start gap-2.5 animate-fade-in">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-red-300">تعذر استكمال التصدير من Odoo:</div>
+                  <div className="text-[11px] leading-relaxed text-red-200">{exportError}</div>
+                  <p className="text-[10px] text-red-400/80">
+                    تأكد من ضبط متغيرات البيئة (URL, DB, user_name, password) بصورة صحيحة على الخادم واستقرار الاتصال بالإنترنت.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Success Message Box */}
+            {exportSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-200 flex items-center gap-2.5 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{exportSuccess}</span>
+              </div>
+            )}
+
+            {/* Loading Indicator */}
+            {exportingKind && (
+              <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-800 text-xs text-blue-200 flex items-center gap-2 animate-pulse">
+                <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+                <span>جارٍ قراءة البيانات من Odoo على دفعات (500 سجل/دفعة) وتوليد ملف CSV... يرجى الانتظار.</span>
+              </div>
+            )}
+
+            {/* 4 Export Buttons Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 1. Order Lines */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+                      1. أسطر أوامر البيع (Order Lines)
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
+                      sale.order.line
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    يتضمن: اسم الأمر، تاريخ الأمر، حالة الأمر، البائع، العميل، اسم الصنف والكود، فئة المنتج كاملة، الكميات المطلوبة والمسلمة والمفوترة، الأسعار والعملة.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleExportOdoo('order_lines', 'أسطر أوامر البيع (sale.order.line)')}
+                  disabled={exportingKind !== null}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-bold transition-all shadow cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {exportingKind === 'order_lines' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>جارٍ التصدير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>تنزيل أسطر الأوامر (CSV)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 2. Customer Invoices */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-emerald-400" />
+                      2. فواتير العملاء المعتمدة (Invoices)
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                      out_invoice · posted
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    يتضمن: رقم الفاتورة، العميل، تاريخ الفاتورة والاستحقاق، مسؤول البيع، المبالغ (قبل الضريبة، الإجمالي، المتبقي)، حالة السداد، رقم أمر البيع، والعملة.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleExportOdoo('invoices', 'فواتير العملاء (invoices)')}
+                  disabled={exportingKind !== null}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-bold transition-all shadow cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {exportingKind === 'invoices' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>جارٍ التصدير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>تنزيل فواتير العملاء (CSV)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 3. Vendor Bills */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                      <Building className="w-4 h-4 text-amber-400" />
+                      3. فواتير الموردين (Vendor Bills)
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">
+                      in_invoice
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    يتضمن: رقم الفاتورة، المورد، تاريخ الفاتورة والاستحقاق، المسؤول، المبالغ (قبل الضريبة، الإجمالي، المتبقي)، حالة السداد، مرجع أمر الشراء، والعملة.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleExportOdoo('vendor_bills', 'فواتير الموردين (vendor_bills)')}
+                  disabled={exportingKind !== null}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-bold transition-all shadow cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {exportingKind === 'vendor_bills' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>جارٍ التصدير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>تنزيل فواتير الموردين (CSV)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 4. Stock Moves */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-cyan-400" />
+                      4. حركات المخزون المنجزة (Stock Moves)
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                      stock.move.line · done
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    يتضمن: تاريخ الحركة، المرجع (WH/OUT / WH/IN)، اسم وكود الصنف، موقع المصدر، موقع الوجهة، والكمية المنقولة الفعلية.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleExportOdoo('stock_moves', 'حركات المخزون (stock_moves)')}
+                  disabled={exportingKind !== null}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-bold transition-all shadow cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {exportingKind === 'stock_moves' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>جارٍ التصدير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>تنزيل حركات المخزون (CSV)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
