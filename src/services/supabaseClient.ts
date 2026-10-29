@@ -140,7 +140,7 @@ export async function pushInvoicePromiseToSupabase(record: {
         promise_date: record.promiseDate,
         promise_status: record.promiseStatus,
         notes: record.notes,
-        assigned_rep: record.assignedRep || 'Tamer Elshafey',
+        assigned_rep: record.assignedRep || 'غير محدد',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
@@ -176,7 +176,7 @@ export async function syncAllInvoicesToSupabase(
       notes:
         inv.followupNotes ||
         `فاتورة Odoo: ${inv.odooName} - عميل: ${inv.customerName} - متبقي $${(inv.amountResidualUSD || 0).toLocaleString()}`,
-      assigned_rep: inv.assignedFollowupUser || inv.salesRepName || 'Tamer Elshafey',
+      assigned_rep: inv.assignedFollowupUser || inv.salesRepName || 'غير محدد',
       updated_at: new Date().toISOString(),
     }));
 

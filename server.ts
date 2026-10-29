@@ -228,7 +228,7 @@ async function startServer() {
           customerId: `partner_${ord.partner_id?.[0]}`,
           customerName: ord.partner_id?.[1] || 'عميل Odoo',
           salesRepId: `user_${ord.user_id?.[0]}`,
-          salesRepName: ord.user_id?.[1] || 'Tamer Elshafey',
+          salesRepName: ord.user_id?.[1] || 'غير محدد',
           isSalesRepInBU: isRepBU,
           status: ord.state === 'sale' ? 'confirmed' : ord.state === 'draft' ? 'quotation' : 'confirmed',
           currency: isUSD ? 'USD' : 'EGP',
@@ -327,7 +327,7 @@ async function startServer() {
           customerId: `partner_${inv.partner_id?.[0]}`,
           customerName: inv.partner_id?.[1] || 'عميل شركة مصر',
           salesRepId: `user_${inv.invoice_user_id?.[0]}`,
-          salesRepName: inv.invoice_user_id?.[1] || 'Tamer Elshafey',
+          salesRepName: inv.invoice_user_id?.[1] || 'غير محدد',
           currency: isUSD ? 'USD' : 'EGP',
           exchangeRate: CURRENT_EXCHANGE_RATE,
           totalUSD: Math.round(totalUSD / (1 + VAT_RATE)),
@@ -650,7 +650,7 @@ async function startServer() {
         },
       ];
 
-      // Load full extracted Odoo dataset (from Tamer's CSVs: 613 orders, 390 products, 123 invoices, 216 clients, 30 staff)
+      // Load full extracted Odoo dataset (613 أمر بيع، 191 صنفاً، بلا فواتير)
       let fullSalesOrders = transformedOrders;
       let fullStockItems = transformedStock;
       let fullInvoices = transformedInvoices;
